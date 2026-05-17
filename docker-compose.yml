@@ -1,0 +1,106 @@
+services:
+
+  # ─── MySQL ────────────────────────────────────────────────────────────────
+  mysql:
+    image: mysql:8.0
+    container_name: ecommerce_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ecommerce_store
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_USER: ecommerce_user
+      MYSQL_PASSWORD: ecommerce_password
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - ecommerce_net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── phpMyAdmin ───────────────────────────────────────────────────────────
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: ecommerce_phpmyadmin
+    restart: unless-stopped
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "8080:80"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - ecommerce_net
+
+  # ─── Laravel Backend (PHP 8.3-FPM) ────────────────────────────────────────
+  app:
+    build:
+      context: ./ecommerce-backend
+      dockerfile: docker/php.dockerfile
+    container_name: ecommerce_app
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - ./ecommerce-backend:/var/www/html
+      - ./ecommerce-backend/storage:/var/www/html/storage
+    environment:
+      APP_ENV: local
+      APP_KEY: base64:sbD/jrtfXo2swTJ9SJvTmpY4q/O/n7uRxlfsu1lDqHw=
+      APP_DEBUG: "true"
+      APP_URL: http://localhost:8000
+      DB_CONNECTION: mysql
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_DATABASE: ecommerce_store
+      DB_USERNAME: ecommerce_user
+      DB_PASSWORD: ecommerce_password
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - ecommerce_net
+
+  # ─── Nginx (serves Laravel via PHP-FPM) ───────────────────────────────────
+  nginx:
+    image: nginx:alpine
+    container_name: ecommerce_nginx
+    restart: unless-stopped
+    ports:
+      - "8000:80"
+    volumes:
+      - ./ecommerce-backend:/var/www/html
+      - ./ecommerce-backend/docker/nginx.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - app
+    networks:
+      - ecommerce_net
+
+  # ─── React Frontend (Vite dev server) ─────────────────────────────────────
+  frontend:
+    image: node:20-alpine
+    container_name: ecommerce_frontend
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - ./ecommerce-frontend:/app
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_URL: http://localhost:8000/api
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    networks:
+      - ecommerce_net
+
+networks:
+  ecommerce_net:
+    driver: bridge
+
+volumes:
+  mysql_data:
