@@ -26,13 +26,17 @@ function Navbar() {
     <header className="navbar">
       <div className="nav-inner">
         <Link to="/" className="brand">
-          <span className="logo">S</span> Stitch Store
+          <span className="logo">M</span> MarketAI
         </Link>
 
         <nav className="nav-links">
           <NavLink className="nav-link" to="/products">Products</NavLink>
           <NavLink className="nav-link" to="/cart">Cart</NavLink>
           <NavLink className="nav-link" to="/orders">Orders</NavLink>
+
+          {(!token || (!isAdmin && !isSeller)) && (
+            <NavLink className="nav-link" to="/become-seller">Become a Seller</NavLink>
+          )}
 
           {token && !isAdmin && !isSeller && (
             <NavLink className="nav-link" to="/settings">Settings</NavLink>

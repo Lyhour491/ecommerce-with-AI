@@ -68,4 +68,68 @@ class UserController extends Controller
             'user' => $user->fresh()->loadCount('orders'),
         ]);
     }
+
+    public function applySeller(Request $request)
+    {
+        $user = $request->user();
+
+        $data = $request->validate([
+            'shop_name' => 'required|string|max:255',
+            'shop_description' => 'required|string',
+            'shop_category' => 'required|string|max:255',
+            'tax_id' => 'required|string|max:255',
+            'website' => 'nullable|string|max:255',
+            'business_phone' => 'required|string|max:255',
+            'business_address' => 'required|string|max:255',
+            'business_city' => 'required|string|max:255',
+            'business_state' => 'required|string|max:255',
+            'business_zip' => 'required|string|max:255',
+            'business_country' => 'required|string|max:255',
+        ]);
+
+        $user->update(array_merge($data, ['seller_status' => 'pending']));
+
+        return response()->json([
+            'message' => 'Seller application submitted successfully',
+            'user' => $user->fresh(),
+        ]);
+    }
+
+    public function getSellerApplications(Request $request)
+    {
+        $this->requireAdmin($request);
+
+        return response()->json([
+            'users' => User::where('seller_status', 'pending')->latest()->get(),
+        ]);
+    }
+
+    public function approveSeller(Request $request, User $user)
+    {
+        $this->requireAdmin($request);
+
+        $user->update([
+            'role' => 'seller',
+            'seller_status' => 'approved',
+        ]);
+
+        return response()->json([
+            'message' => 'Seller application approved successfully',
+            'user' => $user->fresh()->loadCount('orders'),
+        ]);
+    }
+
+    public function rejectSeller(Request $request, User $user)
+    {
+        $this->requireAdmin($request);
+
+        $user->update([
+            'seller_status' => 'rejected',
+        ]);
+
+        return response()->json([
+            'message' => 'Seller application rejected successfully',
+            'user' => $user->fresh()->loadCount('orders'),
+        ]);
+    }
 }

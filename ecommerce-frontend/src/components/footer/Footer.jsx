@@ -6,12 +6,13 @@ function Footer() {
       <div className="site-footer-inner">
         <div className="site-footer-brand">
           <h2>
-            <Link to="/">ProShop</Link>
+            <Link to="/">MarketAI</Link>
           </h2>
-          <p>© 2024 ProShop. Built for efficiency.</p>
+          <p>© 2026 MarketAI. Built for efficiency.</p>
         </div>
 
         <nav className="site-footer-links" aria-label="Footer navigation">
+          <Link to="/become-seller">Become a Seller</Link>
           <span>About Us</span>
           <span>Contact</span>
           <span>Shipping Policy</span>

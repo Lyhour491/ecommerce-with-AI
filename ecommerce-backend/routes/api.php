@@ -26,6 +26,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/user/profile', [AuthController::class, 'updateProfile']);
     Route::put('/user/password', [AuthController::class, 'updatePassword']);
     Route::post('/logout', [AuthController::class, 'logout']);
+    Route::post('/seller/apply', [UserController::class, 'applySeller']);
 
     // ── Admin routes ────────────────────────────────────────────────────
     Route::middleware('admin')->group(function () {
@@ -46,6 +47,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/users', [UserController::class, 'index']);
         Route::put('/users/{user}', [UserController::class, 'update']);
         Route::patch('/users/{user}/role', [UserController::class, 'updateRole']);
+        Route::get('/admin/seller-applications', [UserController::class, 'getSellerApplications']);
+        Route::post('/admin/seller-applications/{user}/approve', [UserController::class, 'approveSeller']);
+        Route::post('/admin/seller-applications/{user}/reject', [UserController::class, 'rejectSeller']);
     });
 
     // ── Seller routes ───────────────────────────────────────────────────

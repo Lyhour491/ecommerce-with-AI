@@ -21,6 +21,8 @@ import SellerDashboard from "./pages/seller/SellerDashboard";
 import SellerProducts from "./pages/seller/SellerProducts";
 import SellerOrders from "./pages/seller/SellerOrders";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
+import BecomeSeller from "./pages/BecomeSeller";
+import SellerApplicationForm from "./pages/SellerApplicationForm";
 
 function App() {
   return (
@@ -30,11 +32,13 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/products" element={<Products />} />
         <Route path="/products/:id" element={<ProductDetail />} />
+        <Route path="/become-seller" element={<BecomeSeller />} />
         <Route element={<ProtectedRoute />}>
           <Route path="/cart" element={<Cart />} />
           <Route path="/checkout" element={<Checkout />} />
           <Route path="/orders" element={<Orders />} />
           <Route path="/settings" element={<UserSettings />} />
+          <Route path="/become-seller/apply" element={<SellerApplicationForm />} />
         </Route>
       </Route>
 
