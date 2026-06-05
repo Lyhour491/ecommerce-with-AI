@@ -28,6 +28,11 @@ class User extends Authenticatable
         'business_zip',
         'business_country',
         'seller_status',
+        'phone',
+        'country',
+        'city',
+        'zip_code',
+        'avatar',
     ];
 
     protected $hidden = [
