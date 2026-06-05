@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\AdminStatsController;
 use App\Http\Controllers\Api\ProductImageController;
+use App\Http\Controllers\Api\SellerProductController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -26,6 +27,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/user/password', [AuthController::class, 'updatePassword']);
     Route::post('/logout', [AuthController::class, 'logout']);
 
+    // ── Admin routes ────────────────────────────────────────────────────
     Route::middleware('admin')->group(function () {
         Route::get('/admin/stats', [AdminStatsController::class, 'index']);
         Route::post('/categories', [CategoryController::class, 'store']);
@@ -46,6 +48,18 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('/users/{user}/role', [UserController::class, 'updateRole']);
     });
 
+    // ── Seller routes ───────────────────────────────────────────────────
+    Route::middleware('seller')->prefix('seller')->group(function () {
+        Route::get('/stats', [SellerProductController::class, 'stats']);
+        Route::get('/products', [SellerProductController::class, 'index']);
+        Route::post('/products', [SellerProductController::class, 'store']);
+        Route::get('/products/{product}', [SellerProductController::class, 'show']);
+        Route::put('/products/{product}', [SellerProductController::class, 'update']);
+        Route::delete('/products/{product}', [SellerProductController::class, 'destroy']);
+        Route::get('/orders', [SellerProductController::class, 'orders']);
+    });
+
+    // ── Customer routes ─────────────────────────────────────────────────
     Route::get('/cart', [CartController::class, 'index']);
     Route::post('/cart', [CartController::class, 'store']);
     Route::put('/cart/{cart}', [CartController::class, 'update']);

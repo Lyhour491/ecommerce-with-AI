@@ -26,6 +26,11 @@ class FullDemoSeeder extends Seeder
             ['name' => 'Customer', 'password' => Hash::make('password'), 'role' => 'customer']
         );
 
+        $seller = User::updateOrCreate(
+            ['email' => 'seller@gmail.com'],
+            ['name' => 'Seller', 'password' => Hash::make('password'), 'role' => 'seller']
+        );
+
         $categories = collect([
             ['name' => 'Electronics', 'description' => 'Premium technology products'],
             ['name' => 'Mobile Devices', 'description' => 'Phones and mobile accessories'],

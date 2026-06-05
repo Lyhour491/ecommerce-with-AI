@@ -2,6 +2,7 @@ import { Routes, Route } from "react-router-dom";
 import PublicLayout from "./components/layouts/PublicLayout";
 import AuthLayout from "./components/layouts/AuthLayout";
 import AdminLayout from "./components/admin/Adminlayout";
+import SellerLayout from "./components/seller/SellerLayout";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -16,6 +17,9 @@ import AdminOrders from "./pages/admin/AdminOrders";
 import AdminCustomers from "./pages/admin/AdminCustomers";
 import AdminSettings from "./pages/admin/AdminSettings";
 import UserSettings from "./pages/UserSettings";
+import SellerDashboard from "./pages/seller/SellerDashboard";
+import SellerProducts from "./pages/seller/SellerProducts";
+import SellerOrders from "./pages/seller/SellerOrders";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 
 function App() {
@@ -48,6 +52,15 @@ function App() {
         <Route path="orders" element={<AdminOrders />} />
         <Route path="customers" element={<AdminCustomers />} />
           <Route path="settings" element={<AdminSettings />} />
+        </Route>
+      </Route>
+
+      {/* Seller pages: seller layout */}
+      <Route element={<ProtectedRoute sellerOnly />}>
+        <Route path="/seller" element={<SellerLayout />}>
+          <Route index element={<SellerDashboard />} />
+          <Route path="products" element={<SellerProducts />} />
+          <Route path="orders" element={<SellerOrders />} />
         </Route>
       </Route>
     </Routes>

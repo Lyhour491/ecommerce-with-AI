@@ -10,6 +10,7 @@ class Product extends Model
     use HasFactory;
 
     protected $fillable = [
+        'user_id',
         'category_id',
         'name',
         'slug',
@@ -27,6 +28,11 @@ class Product extends Model
     ];
 
     protected $appends = ['primary_image_url', 'image_urls'];
+
+    public function seller()
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
 
     public function category()
     {

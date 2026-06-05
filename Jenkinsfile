@@ -14,9 +14,30 @@ pipeline {
         // ── GitHub repo ──
         GIT_REPO = 'https://github.com/Lyhour491/ecommerce-with-AI.git'
         GIT_BRANCH = 'main'
+
+        // Variable to track Docker availability
+        HAS_DOCKER = 'false'
     }
 
     stages {
+
+        // ════════════════════════════════════════════
+        //  0. Docker Availability Check
+        // ════════════════════════════════════════════
+        stage('Check Docker') {
+            steps {
+                script {
+                    try {
+                        sh 'docker info'
+                        env.HAS_DOCKER = 'true'
+                        echo '🐳 Docker daemon is running and accessible. Using Dockerized environment...'
+                    } catch (Exception e) {
+                        env.HAS_DOCKER = 'false'
+                        echo '⚠️ Docker daemon is not accessible or not running. Falling back to local host toolchain...'
+                    }
+                }
+            }
+        }
 
         // ════════════════════════════════════════════
         //  1. Checkout
@@ -30,11 +51,14 @@ pipeline {
         }
 
         // ════════════════════════════════════════════
-        //  2. Prepare Environment
+        //  2. Docker Pipeline Stages
         // ════════════════════════════════════════════
-        stage('Prepare Environment') {
+        stage('Prepare Environment (Docker)') {
+            when {
+                expression { return env.HAS_DOCKER == 'true' }
+            }
             steps {
-                echo '⚙️  Preparing .env files...'
+                echo '⚙️  Preparing .env files for Docker...'
 
                 // Backend .env
                 dir('ecommerce-backend') {
@@ -60,20 +84,20 @@ pipeline {
             }
         }
 
-        // ════════════════════════════════════════════
-        //  3. Build Docker Images
-        // ════════════════════════════════════════════
-        stage('Build') {
+        stage('Build (Docker)') {
+            when {
+                expression { return env.HAS_DOCKER == 'true' }
+            }
             steps {
                 echo '🔨 Building Docker images...'
                 sh 'docker compose build --no-cache'
             }
         }
 
-        // ════════════════════════════════════════════
-        //  4. Start Services
-        // ════════════════════════════════════════════
-        stage('Start Services') {
+        stage('Start Services (Docker)') {
+            when {
+                expression { return env.HAS_DOCKER == 'true' }
+            }
             steps {
                 echo '🚀 Starting all containers...'
                 sh 'docker compose up -d'
@@ -90,10 +114,10 @@ pipeline {
             }
         }
 
-        // ════════════════════════════════════════════
-        //  5. Laravel Setup (migrate + seed + key)
-        // ════════════════════════════════════════════
-        stage('Laravel Setup') {
+        stage('Laravel Setup (Docker)') {
+            when {
+                expression { return env.HAS_DOCKER == 'true' }
+            }
             steps {
                 echo '🗄️  Running Laravel setup...'
                 sh '''
@@ -106,20 +130,20 @@ pipeline {
             }
         }
 
-        // ════════════════════════════════════════════
-        //  6. Run Tests
-        // ════════════════════════════════════════════
-        stage('Test') {
+        stage('Test (Docker)') {
+            when {
+                expression { return env.HAS_DOCKER == 'true' }
+            }
             steps {
                 echo '🧪 Running backend tests...'
                 sh 'docker exec ecommerce_app php artisan test'
             }
         }
 
-        // ════════════════════════════════════════════
-        //  7. Health Check
-        // ════════════════════════════════════════════
-        stage('Health Check') {
+        stage('Health Check (Docker)') {
+            when {
+                expression { return env.HAS_DOCKER == 'true' }
+            }
             steps {
                 echo '❤️  Verifying services are up...'
                 sh '''
@@ -134,6 +158,84 @@ pipeline {
                 '''
             }
         }
+
+        // ════════════════════════════════════════════
+        //  3. Local Pipeline Stages (Fallback)
+        // ════════════════════════════════════════════
+        stage('Prepare Environment (Local)') {
+            when {
+                expression { return env.HAS_DOCKER == 'false' }
+            }
+            steps {
+                echo '⚙️  Preparing .env files for Local SQLite...'
+
+                // Backend .env
+                dir('ecommerce-backend') {
+                    sh '''
+                        cp .env.example .env || true
+                        sed -i "s|DB_CONNECTION=.*|DB_CONNECTION=sqlite|" .env
+                        sed -i "s|DB_HOST=.*|# DB_HOST=mysql|" .env
+                        sed -i "s|DB_PORT=.*|# DB_PORT=3306|" .env
+                        sed -i "s|DB_DATABASE=.*|# DB_DATABASE=ecommerce_store|" .env
+                        sed -i "s|DB_USERNAME=.*|# DB_USERNAME=ecommerce_user|" .env
+                        sed -i "s|DB_PASSWORD=.*|# DB_PASSWORD=ecommerce_password|" .env
+                        sed -i "s|APP_ENV=.*|APP_ENV=testing|" .env
+                        sed -i "s|APP_DEBUG=.*|APP_DEBUG=true|" .env
+                    '''
+                    // Ensure local SQLite database file exists
+                    sh 'touch database/database.sqlite'
+                }
+
+                // Frontend .env
+                dir('ecommerce-frontend') {
+                    sh '''
+                        echo "VITE_API_URL=http://127.0.0.1:8000/api" > .env
+                    '''
+                }
+            }
+        }
+
+        stage('Install & Build (Local)') {
+            when {
+                expression { return env.HAS_DOCKER == 'false' }
+            }
+            steps {
+                echo '🔨 Installing backend and frontend dependencies locally...'
+                dir('ecommerce-backend') {
+                    sh 'composer install --no-interaction --prefer-dist'
+                }
+                dir('ecommerce-frontend') {
+                    sh 'npm install'
+                    sh 'npm run build'
+                }
+            }
+        }
+
+        stage('Laravel Setup (Local)') {
+            when {
+                expression { return env.HAS_DOCKER == 'false' }
+            }
+            steps {
+                echo '🗄️  Setting up Laravel SQLite database...'
+                dir('ecommerce-backend') {
+                    sh 'php artisan key:generate --force'
+                    sh 'php artisan migrate:fresh --seed --force'
+                    sh 'php artisan storage:link || true'
+                }
+            }
+        }
+
+        stage('Test (Local)') {
+            when {
+                expression { return env.HAS_DOCKER == 'false' }
+            }
+            steps {
+                echo '🧪 Running backend tests locally...'
+                dir('ecommerce-backend') {
+                    sh 'php artisan test'
+                }
+            }
+        }
     }
 
     // ════════════════════════════════════════════════
@@ -141,23 +243,42 @@ pipeline {
     // ════════════════════════════════════════════════
     post {
         success {
-            echo '''
-            ✅ ══════════════════════════════════════════
-               Deployment Successful!
-            ══════════════════════════════════════════
-               🌐 Frontend:    http://localhost:5173
-               🔌 Backend API: http://localhost:8000/api
-               🗃️ phpMyAdmin:  http://localhost:8080
-            ══════════════════════════════════════════
-            '''
+            script {
+                if (env.HAS_DOCKER == 'true') {
+                    echo '''
+                    ✅ ══════════════════════════════════════════
+                       Deployment Successful (Docker Compose)!
+                    ══════════════════════════════════════════
+                       🌐 Frontend:    http://localhost:5173
+                       🔌 Backend API: http://localhost:8000/api
+                       🗃️ phpMyAdmin:  http://localhost:8080
+                    ══════════════════════════════════════════
+                    '''
+                } else {
+                    echo '''
+                    ✅ ══════════════════════════════════════════
+                       CI/CD Pipeline Successful (Local Fallback)!
+                       Backend tests passed and frontend was successfully built.
+                    ══════════════════════════════════════════
+                    '''
+                }
+            }
         }
         failure {
-            echo '❌ Deployment failed! Collecting logs...'
-            sh 'docker compose logs --tail=50 || true'
+            echo '❌ Deployment failed! Collecting information...'
+            script {
+                if (env.HAS_DOCKER == 'true') {
+                    sh 'docker compose logs --tail=50 || true'
+                }
+            }
         }
         cleanup {
-            echo '🧹 Cleaning up dangling images...'
-            sh 'docker image prune -f || true'
+            script {
+                if (env.HAS_DOCKER == 'true') {
+                    echo '🧹 Cleaning up dangling images...'
+                    sh 'docker image prune -f || true'
+                }
+            }
         }
     }
 }

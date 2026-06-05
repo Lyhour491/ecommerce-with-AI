@@ -12,7 +12,9 @@ function Navbar() {
   const navigate = useNavigate();
   const token = localStorage.getItem("token");
   const user = getStoredUser();
-  const isAdmin = String(user?.role || "").toLowerCase() === "admin";
+  const role = String(user?.role || "").toLowerCase();
+  const isAdmin = role === "admin";
+  const isSeller = role === "seller";
 
   const logout = () => {
     localStorage.removeItem("token");
@@ -32,8 +34,14 @@ function Navbar() {
           <NavLink className="nav-link" to="/cart">Cart</NavLink>
           <NavLink className="nav-link" to="/orders">Orders</NavLink>
 
-          {token && !isAdmin && (
+          {token && !isAdmin && !isSeller && (
             <NavLink className="nav-link" to="/settings">Settings</NavLink>
+          )}
+
+          {token && isSeller && (
+            <NavLink className="nav-link seller-nav-link" to="/seller">
+              🏪 Seller Hub
+            </NavLink>
           )}
 
           {token && isAdmin && (

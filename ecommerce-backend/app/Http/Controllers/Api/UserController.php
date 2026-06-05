@@ -33,7 +33,7 @@ class UserController extends Controller
         $data = $request->validate([
             'name' => 'sometimes|required|string|max:255',
             'email' => ['sometimes', 'required', 'email', Rule::unique('users')->ignore($user->id)],
-            'role' => 'sometimes|required|in:admin,customer',
+            'role' => 'sometimes|required|in:admin,seller,customer',
             'password' => 'sometimes|nullable|string|min:6',
         ]);
 
@@ -58,7 +58,7 @@ class UserController extends Controller
         $this->requireAdmin($request);
 
         $data = $request->validate([
-            'role' => 'required|in:admin,customer',
+            'role' => 'required|in:admin,seller,customer',
         ]);
 
         $user->update(['role' => $data['role']]);
