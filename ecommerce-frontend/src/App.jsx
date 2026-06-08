@@ -20,9 +20,13 @@ import UserSettings from "./pages/UserSettings";
 import SellerDashboard from "./pages/seller/SellerDashboard";
 import SellerProducts from "./pages/seller/SellerProducts";
 import SellerOrders from "./pages/seller/SellerOrders";
+import SellerPayouts from "./pages/seller/SellerPayouts";
+import SellerAiInsights from "./pages/seller/SellerAiInsights";
+import SellerSettings from "./pages/seller/SellerSettings";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import BecomeSeller from "./pages/BecomeSeller";
 import SellerApplicationForm from "./pages/SellerApplicationForm";
+import Wishlist from "./pages/Wishlist";
 
 function App() {
   return (
@@ -33,6 +37,8 @@ function App() {
         <Route path="/products" element={<Products />} />
         <Route path="/products/:id" element={<ProductDetail />} />
         <Route path="/become-seller" element={<BecomeSeller />} />
+        <Route path="/whitelist" element={<Wishlist />} />
+        <Route path="/wishlist" element={<Wishlist />} />
         <Route element={<ProtectedRoute />}>
           <Route path="/cart" element={<Cart />} />
           <Route path="/checkout" element={<Checkout />} />
@@ -52,9 +58,9 @@ function App() {
       <Route element={<ProtectedRoute adminOnly />}>
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<AdminDashboard />} />
-        <Route path="products" element={<AdminProducts />} />
-        <Route path="orders" element={<AdminOrders />} />
-        <Route path="customers" element={<AdminCustomers />} />
+          <Route path="products" element={<AdminProducts />} />
+          <Route path="orders" element={<AdminOrders />} />
+          <Route path="customers" element={<AdminCustomers />} />
           <Route path="settings" element={<AdminSettings />} />
         </Route>
       </Route>
@@ -65,6 +71,9 @@ function App() {
           <Route index element={<SellerDashboard />} />
           <Route path="products" element={<SellerProducts />} />
           <Route path="orders" element={<SellerOrders />} />
+          <Route path="payouts" element={<SellerPayouts />} />
+          <Route path="ai-insights" element={<SellerAiInsights />} />
+          <Route path="settings" element={<SellerSettings />} />
         </Route>
       </Route>
     </Routes>

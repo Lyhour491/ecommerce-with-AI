@@ -16,6 +16,35 @@ function ProductDetail() {
   const [quantity, setQuantity] = useState(1);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [wishlist, setWishlist] = useState([]);
+
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem("wishlist") || "[]");
+      setWishlist(stored);
+    } catch {
+      setWishlist([]);
+    }
+  }, []);
+
+  const toggleWishlist = () => {
+    if (!product) return;
+    const nextIds = wishlist.includes(product.id)
+      ? wishlist.filter((item) => item !== product.id)
+      : [...wishlist, product.id];
+    setWishlist(nextIds);
+    localStorage.setItem("wishlist", JSON.stringify(nextIds));
+  };
+
+  const toggleWishlistId = (e, targetId) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const nextIds = wishlist.includes(targetId)
+      ? wishlist.filter((item) => item !== targetId)
+      : [...wishlist, targetId];
+    setWishlist(nextIds);
+    localStorage.setItem("wishlist", JSON.stringify(nextIds));
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -72,7 +101,13 @@ function ProductDetail() {
           </aside>
 
           <div className="detail-image-card">
-            <button className="detail-wish">♡</button>
+            <button
+              className="detail-wish"
+              onClick={toggleWishlist}
+              style={{ color: wishlist.includes(product.id) ? "var(--danger)" : "inherit" }}
+            >
+              {wishlist.includes(product.id) ? "♥" : "♡"}
+            </button>
             {images[activeImage] ? <img src={images[activeImage]} alt={product.name} /> : <div className="empty-img">No image</div>}
           </div>
 
@@ -107,7 +142,22 @@ function ProductDetail() {
           <div className="related-grid">
             {(related.length ? related : products.filter((item) => item.id !== product.id).slice(0, 4)).map((item) => {
               const image = getImageUrl(item);
-              return <Link className="related-card" to={`/products/${item.id}`} key={item.id}><div>{image ? <img src={image} alt={item.name} /> : <div className="empty-img">No image</div>}<button>♡</button></div><small>{productCategory(item)}</small><h3>{item.name}</h3><strong>{money(item.price)}</strong></Link>;
+              return (
+                <Link className="related-card" to={`/products/${item.id}`} key={item.id}>
+                  <div>
+                    {image ? <img src={image} alt={item.name} /> : <div className="empty-img">No image</div>}
+                    <button
+                      onClick={(e) => toggleWishlistId(e, item.id)}
+                      style={{ color: wishlist.includes(item.id) ? "var(--danger)" : "inherit" }}
+                    >
+                      {wishlist.includes(item.id) ? "♥" : "♡"}
+                    </button>
+                  </div>
+                  <small>{productCategory(item)}</small>
+                  <h3>{item.name}</h3>
+                  <strong>{money(item.price)}</strong>
+                </Link>
+              );
             })}
           </div>
         </section>

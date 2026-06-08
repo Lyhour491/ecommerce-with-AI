@@ -44,8 +44,18 @@ class OrderController extends Controller
 
     public function updateStatus(Request $request, Order $order)
     {
-        if (!$request->user() || $request->user()->role !== 'admin') {
-            return response()->json(['message' => 'Admin access required'], 403);
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthenticated'], 401);
+        }
+
+        $isAdmin = $user->role === 'admin';
+        $isSeller = $user->role === 'seller' && $order->orderItems()->whereHas('product', function ($q) use ($user) {
+            $q->where('user_id', $user->id);
+        })->exists();
+
+        if (!$isAdmin && !$isSeller) {
+            return response()->json(['message' => 'Unauthorized access to update this order status'], 403);
         }
 
         $data = $request->validate([

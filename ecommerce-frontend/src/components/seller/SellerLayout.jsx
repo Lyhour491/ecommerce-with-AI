@@ -4,6 +4,9 @@ import {
   Package,
   ShoppingCart,
   Store,
+  DollarSign,
+  BrainCircuit,
+  Settings,
   LogOut,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -43,19 +46,22 @@ export default function SellerLayout() {
           <SellerLink to="/seller" icon={<LayoutDashboard size={20} />} text="Dashboard" />
           <SellerLink to="/seller/products" icon={<Package size={20} />} text="My Products" />
           <SellerLink to="/seller/orders" icon={<ShoppingCart size={20} />} text="My Orders" />
+          <SellerLink to="/seller/payouts" icon={<DollarSign size={20} />} text="Payouts" />
+          <SellerLink to="/seller/ai-insights" icon={<BrainCircuit size={20} />} text="AI Insights" />
+          <SellerLink to="/seller/settings" icon={<Settings size={20} />} text="Store Settings" />
         </nav>
 
         <div className="merchant-user-card">
-          <div className="seller-avatar">
+          <div className="seller-avatar" style={{ minWidth: 42, minHeight: 42, borderRadius: "50%", background: "#2563eb", color: "#fff", display: "grid", placeItems: "center", fontWeight: "bold" }}>
             {(user?.name || "S").charAt(0).toUpperCase()}
           </div>
           <div>
-            <p>{user?.name || "Seller"}</p>
-            <span>{user?.email || ""}</span>
+            <p style={{ margin: 0, fontWeight: 900 }}>{user?.name || "Seller"}</p>
+            <span style={{ fontSize: 12, color: "#64748b" }}>{user?.email || ""}</span>
           </div>
         </div>
 
-        <button className="seller-logout-btn" onClick={logout}>
+        <button className="seller-logout-btn" onClick={logout} style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 30px", border: 0, background: "transparent", color: "#64748b", fontWeight: "bold", width: "100%", cursor: "pointer", textAlign: "left" }}>
           <LogOut size={18} />
           <span>Logout</span>
         </button>

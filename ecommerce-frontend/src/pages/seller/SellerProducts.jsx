@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import api from "../../api/axios";
 import { money, getImageUrl, firstApiError } from "../../utils/store";
-import { Plus, Pencil, Trash2, X } from "lucide-react";
+import { Plus, Pencil, Trash2, X, FileEdit } from "lucide-react";
 
 export default function SellerProducts() {
   const [products, setProducts] = useState([]);
@@ -13,8 +13,13 @@ export default function SellerProducts() {
   const [saving, setSaving] = useState(false);
 
   const emptyForm = {
-    name: "", description: "", price: "", stock: "", category_id: "",
-    image_urls: [""], replace_images: false,
+    name: "",
+    description: "",
+    price: "",
+    stock: "",
+    category_id: "",
+    image_urls: [""],
+    replace_images: false,
   };
   const [form, setForm] = useState(emptyForm);
   const [files, setFiles] = useState([]);
@@ -125,155 +130,211 @@ export default function SellerProducts() {
   };
 
   return (
-    <div className="seller-products-page">
-      <div className="seller-page-header">
-        <div>
-          <h1>My Products</h1>
-          <p>{products.length} product{products.length !== 1 ? "s" : ""} listed</p>
+    <div className="merchant-dashboard">
+      {/* Top Bar */}
+      <div className="merchant-topbar">
+        <div className="product-like-topbar">
+          <h1>Product Catalog</h1>
         </div>
-        <button className="seller-btn-primary" onClick={openCreate}>
-          <Plus size={18} /> Add Product
-        </button>
-      </div>
-
-      {loading ? (
-        <div className="seller-loading">Loading products...</div>
-      ) : products.length === 0 ? (
-        <div className="seller-empty">
-          <Package size={48} />
-          <h3>No products yet</h3>
-          <p>Start by adding your first product.</p>
-          <button className="seller-btn-primary" onClick={openCreate}>
+        <div className="product-like-actions">
+          <button className="btn-add-product" onClick={openCreate}>
             <Plus size={18} /> Add Product
           </button>
         </div>
-      ) : (
-        <div className="seller-products-grid">
-          {products.map((product) => (
-            <div className="seller-product-card" key={product.id}>
-              <div className="seller-product-image">
-                {getImageUrl(product) ? (
-                  <img src={getImageUrl(product)} alt={product.name} />
-                ) : (
-                  <div className="seller-product-placeholder">No Image</div>
-                )}
-              </div>
-              <div className="seller-product-info">
-                <h3>{product.name}</h3>
-                <span className="seller-product-category">
-                  {product.category?.name || "—"}
-                </span>
-                <div className="seller-product-meta">
-                  <span className="seller-product-price">{money(product.price)}</span>
-                  <span className="seller-product-stock">Stock: {product.stock}</span>
-                </div>
-              </div>
-              <div className="seller-product-actions">
-                <button className="seller-btn-icon" title="Edit" onClick={() => openEdit(product)}>
-                  <Pencil size={16} />
-                </button>
-                <button className="seller-btn-icon danger" title="Delete" onClick={() => handleDelete(product.id)}>
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      </div>
 
-      {/* ── Create / Edit Modal ───────────────────────────── */}
-      {showModal && (
-        <div className="seller-modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="seller-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="seller-modal-header">
-              <h2>{editing ? "Edit Product" : "New Product"}</h2>
-              <button className="seller-btn-icon" onClick={() => setShowModal(false)}>
-                <X size={20} />
-              </button>
-            </div>
-
-            {error && <div className="alert alert-error">{error}</div>}
-
-            <form className="seller-form" onSubmit={handleSubmit}>
-              <label>
-                <span>Product Name</span>
-                <input name="name" value={form.name} onChange={handleChange} required />
-              </label>
-
-              <label>
-                <span>Category</span>
-                <select name="category_id" value={form.category_id} onChange={handleChange} required>
-                  <option value="">Select category</option>
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-              </label>
-
-              <div className="seller-form-row">
-                <label>
-                  <span>Price ($)</span>
-                  <input type="number" step="0.01" name="price" value={form.price} onChange={handleChange} required />
-                </label>
-                <label>
-                  <span>Stock</span>
-                  <input type="number" name="stock" value={form.stock} onChange={handleChange} required />
-                </label>
-              </div>
-
-              <label>
-                <span>Description</span>
-                <textarea name="description" value={form.description} onChange={handleChange} rows={3} />
-              </label>
-
-              <label>
-                <span>Upload Images</span>
-                <input type="file" multiple accept="image/*" onChange={(e) => setFiles([...e.target.files])} />
-              </label>
-
-              <div className="seller-form-urls">
-                <span>Image URLs</span>
-                {form.image_urls.map((url, idx) => (
-                  <div className="seller-url-row" key={idx}>
-                    <input
-                      value={url}
-                      onChange={(e) => handleUrlChange(idx, e.target.value)}
-                      placeholder="https://..."
-                    />
-                    <button type="button" className="seller-btn-icon danger" onClick={() => removeUrlField(idx)}>
-                      <X size={16} />
-                    </button>
-                  </div>
-                ))}
-                <button type="button" className="seller-btn-text" onClick={addUrlField}>+ Add URL</button>
-              </div>
-
-              {editing && (
-                <label className="seller-checkbox">
-                  <input
-                    type="checkbox"
-                    checked={form.replace_images}
-                    onChange={(e) => setForm({ ...form, replace_images: e.target.checked })}
-                  />
-                  <span>Replace all existing images</span>
-                </label>
-              )}
-
-              <button className="seller-btn-primary seller-btn-full" type="submit" disabled={saving}>
-                {saving ? "Saving..." : editing ? "Update Product" : "Create Product"}
-              </button>
-            </form>
+      <div className="merchant-content">
+        <div className="merchant-title-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+          <div>
+            <h1>My Products</h1>
+            <p>Manage and optimize your store listings.</p>
           </div>
+          <span style={{ color: "var(--muted)", fontWeight: "bold" }}>Total: {products.length} products</span>
         </div>
-      )}
-    </div>
-  );
-}
 
-function Package(props) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width={props.size || 24} height={props.size || 24} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="m7.5 4.27 9 5.15" /><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" /><path d="m3.3 7 8.7 5 8.7-5" /><path d="M12 22V12" />
-    </svg>
+        {error && <div className="alert alert-error">{error}</div>}
+
+        {loading ? (
+          <div className="seller-loading">Loading products...</div>
+        ) : products.length === 0 ? (
+          <div className="card" style={{ padding: "80px 20px", textAlign: "center", background: "white", display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
+            <div style={{ width: 80, height: 80, borderRadius: "50%", background: "#f1f5f9", display: "grid", placeItems: "center", color: "#64748b", fontSize: 32 }}>📦</div>
+            <h3 style={{ margin: 0 }}>No products yet</h3>
+            <p style={{ color: "var(--muted)", margin: 0, maxWidth: 320 }}>Start by listing your first product on the marketplace.</p>
+            <button className="btn-add-product" onClick={openCreate}>
+              <Plus size={18} /> Add Product
+            </button>
+          </div>
+        ) : (
+          <div className="card product-like-table" style={{ background: "white", marginTop: 24 }}>
+            <div className="product-like-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Product Info</th>
+                    <th>Category</th>
+                    <th>Price</th>
+                    <th>Stock Level</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {products.map((product) => {
+                    const img = getImageUrl(product);
+                    const stock = Number(product.stock || 0);
+                    const stockPercentage = Math.min(100, (stock / 100) * 100);
+                    const isLow = stock <= 5;
+                    const isOut = stock === 0;
+
+                    return (
+                      <tr key={product.id}>
+                        <td>
+                          <div className="product-name-cell">
+                            {img ? (
+                              <img src={img} alt={product.name} />
+                            ) : (
+                              <div className="product-empty-icon">📦</div>
+                            )}
+                            <div>
+                              <strong>{product.name}</strong>
+                              <span>SKU: PROD-{product.id}</span>
+                            </div>
+                          </div>
+                        </td>
+                        <td>
+                          <span style={{ fontSize: 13, fontWeight: "bold" }}>
+                            {product.category?.name || "General"}
+                          </span>
+                        </td>
+                        <td>
+                          <strong style={{ fontSize: 15, color: "var(--primary)" }}>{money(product.price)}</strong>
+                        </td>
+                        <td>
+                          <div className="inventory-cell">
+                            <div className={`inventory-bar ${isLow ? "low" : ""}`}>
+                              <i style={{ width: `${stockPercentage}%` }} />
+                            </div>
+                            <b>{stock}</b>
+                          </div>
+                        </td>
+                        <td>
+                          {isOut ? (
+                            <span className="status out-of-stock">Out of Stock</span>
+                          ) : isLow ? (
+                            <span className="status low-stock">Low Stock</span>
+                          ) : (
+                            <span className="status published">Active</span>
+                          )}
+                        </td>
+                        <td>
+                          <div className="row-icon-actions">
+                            <button title="Edit" onClick={() => openEdit(product)}>
+                              <Pencil size={16} />
+                            </button>
+                            <button title="Delete" onClick={() => handleDelete(product.id)} style={{ color: "var(--danger)" }}>
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Create / Edit Modal */}
+        {showModal && (
+          <div className="modal-backdrop" onClick={() => setShowModal(false)}>
+            <div className="edit-user-modal wide-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <div>
+                  <h2>{editing ? "Modify Listing" : "Add New Product"}</h2>
+                  <p>{editing ? "Edit product specifications below." : "Fill out details to list a new item."}</p>
+                </div>
+                <button onClick={() => setShowModal(false)}><X size={18} /></button>
+              </div>
+
+              <form onSubmit={handleSubmit} className="stitch-form" style={{ display: "grid", gap: 14 }}>
+                <div className="create-product-grid" style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 16 }}>
+                  <label>
+                    <span>Product Name *</span>
+                    <input name="name" value={form.name} onChange={handleChange} required placeholder="e.g. ProSeries Earbuds" />
+                  </label>
+                  <label>
+                    <span>Category *</span>
+                    <select name="category_id" value={form.category_id} onChange={handleChange} required>
+                      <option value="">Select category</option>
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+
+                <div className="create-product-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                  <label>
+                    <span>Price ($) *</span>
+                    <input type="number" step="0.01" name="price" value={form.price} onChange={handleChange} required placeholder="0.00" />
+                  </label>
+                  <label>
+                    <span>Stock *</span>
+                    <input type="number" name="stock" value={form.stock} onChange={handleChange} required placeholder="0" />
+                  </label>
+                </div>
+
+                <label>
+                  <span>Product Description</span>
+                  <textarea name="description" value={form.description} onChange={handleChange} rows={3} placeholder="Describe your product specs, features, and specs..." />
+                </label>
+
+                <div style={{ display: "grid", gap: 8 }}>
+                  <span style={{ fontSize: 13, fontWeight: "bold", color: "#64748b" }}>Image File Uploads</span>
+                  <input type="file" multiple accept="image/*" onChange={(e) => setFiles([...e.target.files])} style={{ padding: "8px 12px" }} />
+                </div>
+
+                <div style={{ display: "grid", gap: 8 }}>
+                  <span style={{ fontSize: 13, fontWeight: "bold", color: "#64748b" }}>External Image URLs</span>
+                  {form.image_urls.map((url, idx) => (
+                    <div style={{ display: "flex", gap: 8 }} key={idx}>
+                      <input
+                        value={url}
+                        onChange={(e) => handleUrlChange(idx, e.target.value)}
+                        placeholder="https://images.unsplash.com/..."
+                      />
+                      <button type="button" className="btn btn-danger" style={{ minHeight: 44, padding: "0 12px", borderRadius: 10 }} onClick={() => removeUrlField(idx)}>
+                        <X size={16} />
+                      </button>
+                    </div>
+                  ))}
+                  <button type="button" className="btn btn-ghost" style={{ alignSelf: "start", minHeight: 36, padding: "0 14px", fontSize: 13 }} onClick={addUrlField}>+ Add Image URL</button>
+                </div>
+
+                {editing && (
+                  <label className="checkbox-line" style={{ cursor: "pointer" }}>
+                    <input
+                      type="checkbox"
+                      checked={form.replace_images}
+                      onChange={(e) => setForm({ ...form, replace_images: e.target.checked })}
+                    />
+                    <span>Replace all existing photos</span>
+                  </label>
+                )}
+
+                <div className="modal-actions" style={{ marginTop: 12 }}>
+                  <button type="button" className="btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
+                  <button type="submit" className="btn-add-product" disabled={saving}>
+                    {saving ? "Saving Changes..." : editing ? "Save Product" : "Publish Product"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

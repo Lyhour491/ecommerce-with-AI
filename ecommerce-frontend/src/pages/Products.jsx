@@ -19,6 +19,26 @@ function Products() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [wishlist, setWishlist] = useState([]);
+
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem("wishlist") || "[]");
+      setWishlist(stored);
+    } catch {
+      setWishlist([]);
+    }
+  }, []);
+
+  const toggleWishlist = (e, id) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const nextIds = wishlist.includes(id)
+      ? wishlist.filter((item) => item !== id)
+      : [...wishlist, id];
+    setWishlist(nextIds);
+    localStorage.setItem("wishlist", JSON.stringify(nextIds));
+  };
 
   useEffect(() => {
     Promise.allSettled([api.get("/products"), api.get("/categories")])
@@ -152,7 +172,14 @@ function Products() {
                   <Link className="pro-product-card" to={`/products/${product.id}`} key={product.id}>
                     <div className="product-media">
                       {index === 0 && <span className="product-badge">NEW</span>}
-                      <button className="wish-btn" type="button">♡</button>
+                      <button
+                        className="wish-btn"
+                        type="button"
+                        onClick={(e) => toggleWishlist(e, product.id)}
+                        style={{ color: wishlist.includes(product.id) ? "var(--danger)" : "inherit" }}
+                      >
+                        {wishlist.includes(product.id) ? "♥" : "♡"}
+                      </button>
                       {imageUrl ? <img src={imageUrl} alt={product.name} /> : <div className="empty-img">No image</div>}
                     </div>
                     <div className="pro-card-body">

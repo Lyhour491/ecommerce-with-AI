@@ -30,16 +30,17 @@ function Navbar() {
         </Link>
 
         <nav className="nav-links">
-          <NavLink className="nav-link" to="/products">Products</NavLink>
+          <NavLink className="nav-link" to="/products">AI Marketplace</NavLink>
+          <NavLink className="nav-link" to="/whitelist">My whitelist</NavLink>
+          <NavLink className="nav-link" to="/orders">My order</NavLink>
           <NavLink className="nav-link" to="/cart">Cart</NavLink>
-          <NavLink className="nav-link" to="/orders">Orders</NavLink>
 
           {(!token || (!isAdmin && !isSeller)) && (
             <NavLink className="nav-link" to="/become-seller">Become a Seller</NavLink>
           )}
 
           {token && !isAdmin && !isSeller && (
-            <NavLink className="nav-link" to="/settings">Settings</NavLink>
+            <NavLink className="nav-link" to="/settings">User setting</NavLink>
           )}
 
           {token && isSeller && (

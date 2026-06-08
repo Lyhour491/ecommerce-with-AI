@@ -79,6 +79,17 @@ class AuthController extends Controller
             'city' => 'nullable|string|max:255',
             'zip_code' => 'nullable|string|max:255',
             'avatar' => 'nullable|string',
+            'shop_name' => 'nullable|string|max:255',
+            'shop_description' => 'nullable|string',
+            'shop_category' => 'nullable|string|max:255',
+            'tax_id' => 'nullable|string|max:255',
+            'website' => 'nullable|string|max:2048',
+            'business_phone' => 'nullable|string|max:255',
+            'business_address' => 'nullable|string|max:255',
+            'business_city' => 'nullable|string|max:255',
+            'business_state' => 'nullable|string|max:255',
+            'business_zip' => 'nullable|string|max:255',
+            'business_country' => 'nullable|string|max:255',
         ]);
 
         $user->update($data);
