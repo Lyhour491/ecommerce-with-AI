@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import api from "../api/axios";
 import { getImageUrl, money, unwrapList } from "../utils/store";
 
@@ -9,10 +9,14 @@ const productReviews = (product) => Number(product.reviews_count || product.revi
 const productStorage = (product) => product.sku || product.storage || product.stock_unit || `${product.stock ?? 0} units`;
 
 function Products() {
+  const [searchParams] = useSearchParams();
+  const searchParamQuery = searchParams.get("search") || "";
+  const searchParamCategory = searchParams.get("category") || "";
+
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [activeCategories, setActiveCategories] = useState([]);
-  const [query, setQuery] = useState("");
+  const [activeCategories, setActiveCategories] = useState(searchParamCategory ? [searchParamCategory] : []);
+  const [query, setQuery] = useState(searchParamQuery);
   const [sort, setSort] = useState("recommended");
   const [maxPrice, setMaxPrice] = useState(2500);
   const [inStockOnly, setInStockOnly] = useState(false);
@@ -20,6 +24,13 @@ function Products() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [wishlist, setWishlist] = useState([]);
+
+  useEffect(() => {
+    const q = searchParams.get("search") || "";
+    const cat = searchParams.get("category") || "";
+    setQuery(q);
+    setActiveCategories(cat ? [cat] : []);
+  }, [searchParams]);
 
   useEffect(() => {
     try {

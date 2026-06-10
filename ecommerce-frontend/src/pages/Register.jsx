@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import api from "../api/axios";
-import { firstApiError } from "../utils/store";
+import { firstApiError, unwrapUser } from "../utils/store";
 
 function Register() {
   const navigate = useNavigate();
@@ -18,7 +18,17 @@ function Register() {
     try {
       const res = await api.post("/register", form);
       const token = res.data.token || res.data.access_token;
-      if (token) localStorage.setItem("token", token);
+      if (token) {
+        localStorage.setItem("token", token);
+        // Fetch user profile immediately
+        try {
+          const userRes = await api.get("/user");
+          const user = unwrapUser(userRes.data);
+          localStorage.setItem("user", JSON.stringify(user));
+        } catch (userErr) {
+          console.error("Failed to fetch user profile after registration", userErr);
+        }
+      }
       navigate("/products");
     } catch (err) {
       setError(firstApiError(err, "Register failed."));
