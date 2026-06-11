@@ -124,7 +124,7 @@ function Login() {
             <label>
               <span className="label-row">
                 <span>Password</span>
-                <a>Forgot password?</a>
+                <Link to="/forgot-password">Forgot password?</Link>
               </span>
               <div className="input-with-icon">
                 <b>▣</b>
