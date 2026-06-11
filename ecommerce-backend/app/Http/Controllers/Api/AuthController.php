@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Laravel\Socialite\Facades\Socialite;
 
 class AuthController extends Controller
 {
@@ -130,6 +131,75 @@ class AuthController extends Controller
 
         return response()->json([
             'message' => 'Logout successful',
+        ]);
+    }
+
+    public function redirectToProvider($provider)
+    {
+        if (!in_array($provider, ['google', 'facebook'])) {
+            return response()->json(['error' => 'Invalid auth provider'], 400);
+        }
+
+        try {
+            $url = Socialite::driver($provider)->stateless()->redirect()->getTargetUrl();
+            return response()->json(['url' => $url]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Failed to generate redirect URL',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function handleProviderCallback(Request $request, $provider)
+    {
+        if (!in_array($provider, ['google', 'facebook'])) {
+            return response()->json(['error' => 'Invalid auth provider'], 400);
+        }
+
+        try {
+            $socialUser = Socialite::driver($provider)->stateless()->user();
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Failed to retrieve user information from ' . ucfirst($provider),
+                'message' => $e->getMessage()
+            ], 400);
+        }
+
+        $email = $socialUser->getEmail();
+        if (!$email) {
+            return response()->json(['error' => 'Email address not provided by social login provider.'], 400);
+        }
+
+        $user = User::where('email', $email)->first();
+
+        if ($user) {
+            // Update social provider ID if not set
+            $providerField = "{$provider}_id";
+            if (!$user->$providerField) {
+                $user->update([$providerField => $socialUser->getId()]);
+            }
+            // Update avatar if they don't have one or if it's default
+            if (!$user->avatar && $socialUser->getAvatar()) {
+                $user->update(['avatar' => $socialUser->getAvatar()]);
+            }
+        } else {
+            // Create user
+            $user = User::create([
+                'name' => $socialUser->getName() ?? $socialUser->getNickname() ?? 'Social User',
+                'email' => $email,
+                "{$provider}_id" => $socialUser->getId(),
+                'avatar' => $socialUser->getAvatar(),
+                'role' => 'customer',
+            ]);
+        }
+
+        $token = $user->createToken('auth_token')->plainTextToken;
+
+        return response()->json([
+            'message' => 'Login successful',
+            'user' => $user,
+            'token' => $token,
         ]);
     }
 }

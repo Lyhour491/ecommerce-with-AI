@@ -13,6 +13,8 @@ use App\Http\Controllers\Api\SellerProductController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+Route::get('/auth/{provider}/redirect', [AuthController::class, 'redirectToProvider']);
+Route::post('/auth/{provider}/callback', [AuthController::class, 'handleProviderCallback']);
 
 Route::get('/categories', [CategoryController::class, 'index']);
 Route::get('/categories/{category}', [CategoryController::class, 'show']);

@@ -6,6 +6,7 @@ import SellerLayout from "./components/seller/SellerLayout";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import SocialCallback from "./pages/SocialCallback";
 import Products from "./pages/Products";
 import ProductDetail from "./pages/ProductDetail";
 import Cart from "./pages/Cart";
@@ -52,6 +53,7 @@ function App() {
       <Route element={<AuthLayout />}>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/auth/callback/:provider" element={<SocialCallback />} />
       </Route>
 
       {/* Admin pages: admin layout only, no public footer */}

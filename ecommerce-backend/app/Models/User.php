@@ -33,6 +33,8 @@ class User extends Authenticatable
         'city',
         'zip_code',
         'avatar',
+        'google_id',
+        'facebook_id',
     ];
 
     protected $hidden = [
