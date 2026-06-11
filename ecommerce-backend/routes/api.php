@@ -27,6 +27,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/user/password', [AuthController::class, 'updatePassword']);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::post('/seller/apply', [UserController::class, 'applySeller']);
+    Route::patch('/orders/{order}/status', [OrderController::class, 'updateStatus']);
 
     // ── Admin routes ────────────────────────────────────────────────────
     Route::middleware('admin')->group(function () {
@@ -41,7 +42,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('/product-images/{productImage}/primary', [ProductImageController::class, 'setPrimary']);
         Route::delete('/product-images/{productImage}', [ProductImageController::class, 'destroy']);
 
-        Route::patch('/orders/{order}/status', [OrderController::class, 'updateStatus']);
         Route::put('/orders/{order}', [OrderController::class, 'update']);
 
         Route::get('/users', [UserController::class, 'index']);
