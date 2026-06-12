@@ -9,6 +9,7 @@ use App\Models\OrderItem;
 use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 
 class OrderController extends Controller
 {
@@ -167,12 +168,12 @@ class OrderController extends Controller
                     'price' => $item->product->price,
                 ]);
 
-                $product = Product::find($item->product_id);
-                $product->stock -= $item->quantity;
-                $product->save();
+                $item->product->decrement('stock', $item->quantity);
             }
 
             Cart::where('user_id', $request->user()->id)->delete();
+
+            Cache::forget('products:top');
 
             return response()->json([
                 'message' => 'Checkout successful. Test payment processed.',

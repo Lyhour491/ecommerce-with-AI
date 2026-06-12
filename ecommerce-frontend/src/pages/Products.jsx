@@ -103,7 +103,7 @@ function Products() {
     );
   };
 
-  if (loading) return <div className="loading">Loading products...</div>;
+
 
   return (
     <main className="proshop-page">
@@ -172,7 +172,24 @@ function Products() {
 
           {error && <div className="alert alert-error">{error}</div>}
 
-          {visibleProducts.length === 0 ? (
+          {loading ? (
+            <div className="pro-product-grid">
+              {Array.from({ length: 6 }).map((_, idx) => (
+                <div key={idx} className="skeleton-card">
+                  <div className="skeleton-media skeleton-shimmer" />
+                  <div className="skeleton-body">
+                    <div className="skeleton-line title skeleton-shimmer" />
+                    <div className="skeleton-line skeleton-shimmer" />
+                    <div className="skeleton-line short skeleton-shimmer" />
+                  </div>
+                  <div className="skeleton-row">
+                    <div className="skeleton-circle skeleton-shimmer" />
+                    <div className="skeleton-line short skeleton-shimmer" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : visibleProducts.length === 0 ? (
             <div className="empty-state card">No products found.</div>
           ) : (
             <div className="pro-product-grid">

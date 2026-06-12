@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Cache;
 
 class ProductController extends Controller
 {
@@ -41,45 +42,22 @@ class ProductController extends Controller
 
     public function topProducts()
     {
-        $topProducts = OrderItem::query()
-            ->select(
-                'product_id',
-                DB::raw('SUM(quantity) as sold_count'),
-                DB::raw('SUM(quantity * price) as revenue')
-            )
-            ->with(['product.category', 'product.images'])
-            ->whereNotNull('product_id')
-            ->groupBy('product_id')
-            ->orderByDesc('sold_count')
-            ->limit(8)
-            ->get()
-            ->filter(fn ($item) => $item->product)
-            ->map(function ($item) {
-                $product = $item->product;
-                return [
-                    'id' => $product->id,
-                    'category_id' => $product->category_id,
-                    'name' => $product->name,
-                    'slug' => $product->slug,
-                    'description' => $product->description,
-                    'price' => (float) $product->price,
-                    'stock' => (int) $product->stock,
-                    'category' => $product->category,
-                    'images' => $product->images,
-                    'image' => $product->primary_image_url,
-                    'image_urls' => $product->image_urls,
-                    'sold_count' => (int) $item->sold_count,
-                    'revenue' => (float) $item->revenue,
-                ];
-            })
-            ->values();
-
-        if ($topProducts->isEmpty()) {
-            $topProducts = Product::with(['category', 'images'])
-                ->latest()
+        $topProducts = Cache::remember('products:top', now()->addMinutes(10), function () {
+            $items = OrderItem::query()
+                ->select(
+                    'product_id',
+                    DB::raw('SUM(quantity) as sold_count'),
+                    DB::raw('SUM(quantity * price) as revenue')
+                )
+                ->with(['product.category', 'product.images'])
+                ->whereNotNull('product_id')
+                ->groupBy('product_id')
+                ->orderByDesc('sold_count')
                 ->limit(8)
                 ->get()
-                ->map(function ($product) {
+                ->filter(fn ($item) => $item->product)
+                ->map(function ($item) {
+                    $product = $item->product;
                     return [
                         'id' => $product->id,
                         'category_id' => $product->category_id,
@@ -92,11 +70,38 @@ class ProductController extends Controller
                         'images' => $product->images,
                         'image' => $product->primary_image_url,
                         'image_urls' => $product->image_urls,
-                        'sold_count' => 0,
-                        'revenue' => 0,
+                        'sold_count' => (int) $item->sold_count,
+                        'revenue' => (float) $item->revenue,
                     ];
-                });
-        }
+                })
+                ->values();
+
+            if ($items->isEmpty()) {
+                $items = Product::with(['category', 'images'])
+                    ->latest()
+                    ->limit(8)
+                    ->get()
+                    ->map(function ($product) {
+                        return [
+                            'id' => $product->id,
+                            'category_id' => $product->category_id,
+                            'name' => $product->name,
+                            'slug' => $product->slug,
+                            'description' => $product->description,
+                            'price' => (float) $product->price,
+                            'stock' => (int) $product->stock,
+                            'category' => $product->category,
+                            'images' => $product->images,
+                            'image' => $product->primary_image_url,
+                            'image_urls' => $product->image_urls,
+                            'sold_count' => 0,
+                            'revenue' => 0,
+                        ];
+                    });
+            }
+
+            return $items;
+        });
 
         return response()->json($topProducts);
     }
@@ -127,6 +132,8 @@ class ProductController extends Controller
         ]);
 
         $this->syncImages($request, $product);
+
+        Cache::forget('products:top');
 
         return response()->json([
             'message' => 'Product created successfully',
@@ -166,6 +173,8 @@ class ProductController extends Controller
         ]);
 
         $this->syncImages($request, $product);
+
+        Cache::forget('products:top');
 
         return response()->json([
             'message' => 'Product updated successfully',
@@ -233,6 +242,8 @@ class ProductController extends Controller
         }
 
         $product->delete();
+
+        Cache::forget('products:top');
 
         return response()->json([
             'message' => 'Product deleted successfully',

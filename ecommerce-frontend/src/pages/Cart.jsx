@@ -57,7 +57,41 @@ function Cart() {
     }
   };
 
-  if (loading) return <div className="loading">Loading cart...</div>;
+  if (loading) {
+    return (
+      <main className="cart-page">
+        <div className="cart-shell">
+          <section className="cart-main">
+            <div className="cart-heading">
+              <div className="skeleton-line title skeleton-shimmer" style={{ width: '40%', height: 32 }} />
+              <div className="skeleton-line skeleton-shimmer" style={{ width: '20%', height: 16, marginTop: 8 }} />
+            </div>
+            <div className="cart-item-list" style={{ marginTop: 24 }}>
+              {Array.from({ length: 2 }).map((_, idx) => (
+                <article className="pro-cart-item" key={idx} style={{ border: 'none' }}>
+                  <div className="pro-cart-img skeleton-shimmer" style={{ borderRadius: 12, height: 96, width: 96 }} />
+                  <div className="pro-cart-info" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div className="skeleton-line title skeleton-shimmer" style={{ width: '60%', height: 20 }} />
+                    <div className="skeleton-line skeleton-shimmer" style={{ width: '30%', height: 14 }} />
+                    <div className="skeleton-line skeleton-shimmer" style={{ width: '20%', height: 24 }} />
+                  </div>
+                  <div className="skeleton-line skeleton-shimmer" style={{ width: 60, height: 20, marginLeft: 'auto' }} />
+                </article>
+              ))}
+            </div>
+          </section>
+          <aside className="cart-summary-card">
+            <div className="skeleton-line title skeleton-shimmer" style={{ width: '60%', height: 24, marginBottom: 20 }} />
+            <div className="summary-line"><div className="skeleton-line skeleton-shimmer" style={{ width: '40%' }} /><div className="skeleton-line skeleton-shimmer" style={{ width: '20%' }} /></div>
+            <div className="summary-line"><div className="skeleton-line skeleton-shimmer" style={{ width: '50%' }} /><div className="skeleton-line skeleton-shimmer" style={{ width: '15%' }} /></div>
+            <div className="summary-line"><div className="skeleton-line skeleton-shimmer" style={{ width: '30%' }} /><div className="skeleton-line skeleton-shimmer" style={{ width: '20%' }} /></div>
+            <div className="summary-total" style={{ borderTop: '1px solid #eef2f6', paddingTop: 20, marginTop: 20 }}><div className="skeleton-line skeleton-shimmer" style={{ width: '30%', height: 24 }} /><div className="skeleton-line skeleton-shimmer" style={{ width: '20%', height: 24 }} /></div>
+            <div className="skeleton-line skeleton-shimmer" style={{ height: 48, borderRadius: 10, marginTop: 20 }} />
+          </aside>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="cart-page">

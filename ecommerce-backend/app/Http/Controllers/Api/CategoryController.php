@@ -6,12 +6,17 @@ use App\Http\Controllers\Controller;
 use App\Models\Category;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Cache;
 
 class CategoryController extends Controller
 {
     public function index()
     {
-        return response()->json(Category::latest()->get());
+        $categories = Cache::remember('categories:all', now()->addHour(), function () {
+            return Category::latest()->get();
+        });
+
+        return response()->json($categories);
     }
 
     public function store(Request $request)
@@ -26,6 +31,8 @@ class CategoryController extends Controller
             'slug' => Str::slug($request->name),
             'description' => $request->description,
         ]);
+
+        Cache::forget('categories:all');
 
         return response()->json([
             'message' => 'Category created successfully',
@@ -51,6 +58,8 @@ class CategoryController extends Controller
             'description' => $request->description,
         ]);
 
+        Cache::forget('categories:all');
+
         return response()->json([
             'message' => 'Category updated successfully',
             'category' => $category
@@ -60,6 +69,8 @@ class CategoryController extends Controller
     public function destroy(Category $category)
     {
         $category->delete();
+
+        Cache::forget('categories:all');
 
         return response()->json([
             'message' => 'Category deleted successfully'

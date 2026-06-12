@@ -138,21 +138,23 @@ class SellerProductController extends Controller
     {
         $sellerId = $request->user()->id;
 
-        $products = Product::where('user_id', $sellerId)->get();
-        $productIds = $products->pluck('id');
+        $totalProducts = Product::where('user_id', $sellerId)->count();
+        $totalStock = (int) Product::where('user_id', $sellerId)->sum('stock');
 
-        $totalProducts = $products->count();
-        $totalStock = $products->sum('stock');
+        $orderItemStats = \App\Models\OrderItem::whereIn('product_id', function ($query) use ($sellerId) {
+            $query->select('id')->from('products')->where('user_id', $sellerId);
+        })
+        ->selectRaw('SUM(quantity) as total_sold, SUM(quantity * price) as total_revenue')
+        ->first();
 
-        $orderItems = \App\Models\OrderItem::whereIn('product_id', $productIds)->get();
-        $totalSold = $orderItems->sum('quantity');
-        $totalRevenue = $orderItems->sum(fn ($item) => $item->quantity * $item->price);
+        $totalSold = (int) ($orderItemStats->total_sold ?? 0);
+        $totalRevenue = (float) ($orderItemStats->total_revenue ?? 0);
 
         return response()->json([
             'total_products' => $totalProducts,
-            'total_stock'    => (int) $totalStock,
-            'total_sold'     => (int) $totalSold,
-            'total_revenue'  => round((float) $totalRevenue, 2),
+            'total_stock'    => $totalStock,
+            'total_sold'     => $totalSold,
+            'total_revenue'  => round($totalRevenue, 2),
         ]);
     }
 

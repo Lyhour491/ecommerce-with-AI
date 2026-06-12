@@ -11,7 +11,7 @@ class CartController extends Controller
 {
     public function index(Request $request)
     {
-        $cart = Cart::with('product')
+        $cart = Cart::with(['product.category', 'product.images'])
             ->where('user_id', $request->user()->id)
             ->get();
 
@@ -50,7 +50,7 @@ class CartController extends Controller
 
         return response()->json([
             'message' => 'Product added to cart',
-            'cart' => $cart->load('product')
+            'cart' => $cart->load(['product.category', 'product.images'])
         ], 201);
     }
 
@@ -70,7 +70,7 @@ class CartController extends Controller
 
         return response()->json([
             'message' => 'Cart updated',
-            'cart' => $cart->load('product')
+            'cart' => $cart->load(['product.category', 'product.images'])
         ]);
     }
 

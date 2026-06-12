@@ -81,7 +81,34 @@ function ProductDetail() {
     }
   };
 
-  if (loading) return <div className="loading">Loading product...</div>;
+  if (loading) {
+    return (
+      <main className="proshop-page detail-page">
+        <section className="detail-shell">
+          <div className="breadcrumbs skeleton-line short skeleton-shimmer" style={{ height: 20 }} />
+          <div className="skeleton-detail-grid">
+            <aside className="skeleton-detail-thumbs">
+              {Array.from({ length: 4 }).map((_, idx) => (
+                <div key={idx} className="skeleton-thumb skeleton-shimmer" />
+              ))}
+            </aside>
+            <div className="skeleton-detail-image skeleton-shimmer" />
+            <div className="skeleton-detail-info">
+              <div className="skeleton-line title skeleton-shimmer" style={{ width: '40%' }} />
+              <div className="skeleton-line skeleton-shimmer" style={{ height: 40, width: '80%' }} />
+              <div className="skeleton-line skeleton-shimmer" style={{ width: '30%' }} />
+              <div className="skeleton-line skeleton-shimmer" style={{ height: 24, width: '50%' }} />
+              <div className="skeleton-line skeleton-shimmer" style={{ height: 60, width: '100%' }} />
+              <div className="skeleton-row" style={{ padding: 0, marginTop: 20 }}>
+                <div className="skeleton-line skeleton-shimmer" style={{ height: 44, width: 120, borderRadius: 10 }} />
+                <div className="skeleton-line skeleton-shimmer" style={{ height: 44, width: 160, borderRadius: 10 }} />
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    );
+  }
   if (!product) return <main className="container"><div className="alert alert-error">{error}</div></main>;
 
   const stock = Number(product.stock || 0);

@@ -5,7 +5,33 @@ import { unwrapUser } from "../../utils/store";
 
 function ProtectedRoute({ adminOnly = false, sellerOnly = false }) {
   const location = useLocation();
-  const [state, setState] = useState({ loading: true, allowed: false });
+
+  // Initialize state based on cached localStorage values for instant loading
+  const [state, setState] = useState(() => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      return { loading: false, allowed: false };
+    }
+
+    try {
+      const cachedUser = JSON.parse(localStorage.getItem("user"));
+      if (cachedUser) {
+        const role = String(cachedUser?.role || "").toLowerCase();
+        const isAdmin = role === "admin";
+        const isSeller = role === "seller";
+
+        let allowed = true;
+        if (adminOnly) allowed = isAdmin;
+        else if (sellerOnly) allowed = isSeller || isAdmin;
+
+        return { loading: false, allowed };
+      }
+    } catch (e) {
+      // Ignore parsing errors and fallback to fetching
+    }
+
+    return { loading: true, allowed: false };
+  });
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -15,12 +41,14 @@ function ProtectedRoute({ adminOnly = false, sellerOnly = false }) {
     }
 
     let active = true;
+
     api
       .get("/user")
       .then((res) => {
         if (!active) return;
         const user = unwrapUser(res.data);
         localStorage.setItem("user", JSON.stringify(user));
+        
         const role = String(user?.role || "").toLowerCase();
         const isAdmin = role === "admin";
         const isSeller = role === "seller";
@@ -32,9 +60,10 @@ function ProtectedRoute({ adminOnly = false, sellerOnly = false }) {
         setState({ loading: false, allowed });
       })
       .catch(() => {
+        if (!active) return;
         localStorage.removeItem("token");
         localStorage.removeItem("user");
-        if (active) setState({ loading: false, allowed: false });
+        setState({ loading: false, allowed: false });
       });
 
     return () => {

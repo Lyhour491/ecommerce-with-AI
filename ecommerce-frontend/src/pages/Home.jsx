@@ -166,9 +166,21 @@ function Home() {
         </div>
 
         {loading ? (
-          <div className="home-loading">
-            <div className="spinner"></div>
-            <p>Loading featured products...</p>
+          <div className="skeleton-home-grid">
+            {Array.from({ length: 4 }).map((_, idx) => (
+              <div key={idx} className="skeleton-card">
+                <div className="skeleton-media skeleton-shimmer" />
+                <div className="skeleton-body">
+                  <div className="skeleton-line title skeleton-shimmer" />
+                  <div className="skeleton-line skeleton-shimmer" />
+                  <div className="skeleton-line short skeleton-shimmer" />
+                </div>
+                <div className="skeleton-row">
+                  <div className="skeleton-circle skeleton-shimmer" />
+                  <div className="skeleton-line short skeleton-shimmer" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : topProducts.length === 0 ? (
           <div className="home-empty">No featured products found. Check that Laravel and DB are seeded.</div>
