@@ -27,6 +27,7 @@ function Checkout() {
   const [loading, setLoading] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
 
   const loadCart = async () => {
     setPageLoading(true);
@@ -92,6 +93,45 @@ function Checkout() {
         setError("Please fill in all card details.");
         return false;
       }
+
+      if (form.cardholder_name.trim().length < 3) {
+        setError("Cardholder name must be at least 3 characters.");
+        return false;
+      }
+
+      const digitsOnly = form.card_number.replace(/\s+/g, "");
+      if (!/^\d{16}$/.test(digitsOnly)) {
+        setError("Card number must be exactly 16 digits.");
+        return false;
+      }
+
+      if (!/^\d{2}\/\d{2}$/.test(form.expiry_date)) {
+        setError("Expiry date must be in MM/YY format (e.g. 12/28).");
+        return false;
+      }
+
+      const [monthStr, yearStr] = form.expiry_date.split("/");
+      const month = parseInt(monthStr, 10);
+      const year = parseInt("20" + yearStr, 10);
+
+      if (month < 1 || month > 12) {
+        setError("Expiry month must be between 01 and 12.");
+        return false;
+      }
+
+      const currentDate = new Date();
+      const currentMonth = currentDate.getMonth() + 1;
+      const currentYear = currentDate.getFullYear();
+
+      if (year < currentYear || (year === currentYear && month < currentMonth)) {
+        setError("The credit card has expired.");
+        return false;
+      }
+
+      if (!/^\d{3,4}$/.test(form.cvv)) {
+        setError("CVV must be 3 or 4 digits.");
+        return false;
+      }
     }
     setError("");
     return true;
@@ -100,6 +140,7 @@ function Checkout() {
   const handleCheckout = async (e) => {
     if (e) e.preventDefault();
     setError("");
+    setMessage("");
     setLoading(true);
     try {
       const shipping_address = [form.street_address, form.city, form.state, form.zip_code].filter(Boolean).join(", ");
@@ -113,7 +154,10 @@ function Checkout() {
         expiry_date: form.expiry_date,
         cvv: form.cvv,
       });
-      navigate("/orders");
+      setMessage("Order placed successfully! Redirecting...");
+      setTimeout(() => {
+        navigate("/orders");
+      }, 1500);
     } catch (err) {
       if (err.response?.status === 401) return navigate("/login");
       setError(firstApiError(err, "Checkout failed."));
@@ -170,6 +214,7 @@ function Checkout() {
         <section className="checkout-form-column">
           <Link className="back-link" to="/cart">← Back to Cart</Link>
           {error && <div className="alert alert-error">{error}</div>}
+          {message && <div className="alert alert-success">{message}</div>}
 
           {/* STEP 1: SHIPPING DETAILS */}
           {step === 1 && (
