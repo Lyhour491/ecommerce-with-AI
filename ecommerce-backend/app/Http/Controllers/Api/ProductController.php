@@ -119,6 +119,7 @@ class ProductController extends Controller
             'image_urls' => 'nullable|array',
             'image_urls.*' => 'nullable|url|max:2048',
             'replace_images' => 'nullable|boolean',
+            'tags' => 'nullable|string|max:1000',
         ]);
 
         $product = Product::create([
@@ -128,6 +129,7 @@ class ProductController extends Controller
             'description' => $request->description,
             'price' => $request->price,
             'stock' => $request->stock,
+            'tags' => $request->tags,
             'is_active' => true,
         ]);
 
@@ -161,6 +163,7 @@ class ProductController extends Controller
             'image_urls' => 'nullable|array',
             'image_urls.*' => 'nullable|url|max:2048',
             'replace_images' => 'nullable|boolean',
+            'tags' => 'nullable|string|max:1000',
         ]);
 
         $product->update([
@@ -170,6 +173,7 @@ class ProductController extends Controller
             'description' => $request->description,
             'price' => $request->price,
             'stock' => $request->stock,
+            'tags' => $request->tags,
         ]);
 
         $this->syncImages($request, $product);

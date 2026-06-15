@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import api from "../../api/axios";
 import { money, getImageUrl, firstApiError } from "../../utils/store";
-import { Plus, Pencil, Trash2, X, FileEdit } from "lucide-react";
+import { Plus, Pencil, Trash2, X, FileEdit, Sparkles } from "lucide-react";
 
 export default function SellerProducts() {
   const [products, setProducts] = useState([]);
@@ -23,6 +23,52 @@ export default function SellerProducts() {
   };
   const [form, setForm] = useState(emptyForm);
   const [files, setFiles] = useState([]);
+
+  const [showAiAssist, setShowAiAssist] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [generatingAi, setGeneratingAi] = useState(false);
+  const [aiResult, setAiResult] = useState(null);
+
+  const generateAiContent = async () => {
+    setGeneratingAi(true);
+    setAiResult(null);
+    try {
+      const res = await api.post("/seller/ai/generate-product-content", {
+        prompt: aiPrompt,
+      });
+      setAiResult(res.data);
+    } catch (err) {
+      alert("Failed to generate content: " + (err.response?.data?.message || err.message));
+    } finally {
+      setGeneratingAi(false);
+    }
+  };
+
+  const applyAiContent = () => {
+    if (!aiResult) return;
+    
+    let matchedCatId = "";
+    const nameMatch = aiResult.category_suggestion?.toLowerCase() || "";
+    const matched = categories.find((c) => c.name.toLowerCase().includes(nameMatch) || nameMatch.includes(c.name.toLowerCase()));
+    if (matched) {
+      matchedCatId = matched.id;
+    } else if (categories.length > 0) {
+      matchedCatId = categories[0].id;
+    }
+
+    setForm({
+      ...form,
+      name: aiResult.name || form.name,
+      price: aiResult.price || form.price,
+      description: aiResult.description || form.description,
+      category_id: matchedCatId || form.category_id,
+    });
+
+    setShowAiAssist(false);
+    setAiPrompt("");
+    setAiResult(null);
+  };
+
 
   useEffect(() => {
     loadProducts();
@@ -259,6 +305,14 @@ export default function SellerProducts() {
               </div>
 
               <form onSubmit={handleSubmit} className="stitch-form" style={{ display: "grid", gap: 14 }}>
+                {/* AI Assist Trigger Banner */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#f5f3ff", padding: "10px 14px", borderRadius: 12, border: "1px dashed #7c3aed" }}>
+                  <span style={{ fontSize: 13, fontWeight: "600", color: "#5b21b6" }}>Want to save time? Generate details with AI.</span>
+                  <button type="button" className="btn-ai-assist" onClick={() => setShowAiAssist(true)}>
+                    <Sparkles size={14} /> AI Assist
+                  </button>
+                </div>
+
                 <div className="create-product-grid" style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 16 }}>
                   <label>
                     <span>Product Name *</span>
@@ -331,6 +385,74 @@ export default function SellerProducts() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* AI Assistant Modal */}
+        {showAiAssist && (
+          <div className="modal-backdrop" style={{ zIndex: 1001 }} onClick={() => setShowAiAssist(false)}>
+            <div className="ai-assistant-modal" onClick={(e) => e.stopPropagation()}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                <h3 style={{ margin: 0, display: "flex", alignItems: "center", gap: 8, color: "#1e1b4b" }}>
+                  <Sparkles size={18} style={{ color: "#7c3aed" }} /> AI Product Generator
+                </h3>
+                <button type="button" onClick={() => setShowAiAssist(false)} style={{ background: "transparent", color: "var(--muted)" }}>
+                  <X size={18} />
+                </button>
+              </div>
+              
+              <p style={{ fontSize: 13, color: "var(--muted)", margin: "0 0 14px 0" }}>
+                Describe your product (name, key traits, category) and the AI will draft optimized name, price, category, and description.
+              </p>
+
+              <textarea
+                rows={3}
+                placeholder="e.g. Ergonomic Office Chair, high back support, breathable mesh, adjustable armrests..."
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                style={{ width: "100%", marginBottom: 14, minHeight: 80 }}
+              />
+
+              <button
+                type="button"
+                className="btn-add-product"
+                style={{ width: "100%", height: 44, display: "grid", placeItems: "center" }}
+                onClick={generateAiContent}
+                disabled={generatingAi || !aiPrompt.trim()}
+              >
+                {generatingAi ? "Generating listing..." : "✨ Generate Details"}
+              </button>
+
+              {aiResult && (
+                <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 12, borderTop: "1px solid var(--border)", paddingTop: 16 }}>
+                  <div className="ai-suggested-field">
+                    <strong style={{ display: "block", fontSize: 11, color: "#7c3aed", marginBottom: 2 }}>Suggested Title</strong>
+                    <span style={{ fontSize: 14, fontWeight: "600" }}>{aiResult.name}</span>
+                  </div>
+                  <div className="ai-suggested-field">
+                    <strong style={{ display: "block", fontSize: 11, color: "#7c3aed", marginBottom: 2 }}>Suggested Price</strong>
+                    <span style={{ fontSize: 14, fontWeight: "600" }}>${Number(aiResult.price || 0).toFixed(2)}</span>
+                  </div>
+                  <div className="ai-suggested-field">
+                    <strong style={{ display: "block", fontSize: 11, color: "#7c3aed", marginBottom: 2 }}>Recommended Category</strong>
+                    <span style={{ fontSize: 14, fontWeight: "600" }}>{aiResult.category_suggestion}</span>
+                  </div>
+                  <div className="ai-suggested-field">
+                    <strong style={{ display: "block", fontSize: 11, color: "#7c3aed", marginBottom: 2 }}>Generated Description</strong>
+                    <div style={{ fontSize: 13, maxHeight: 120, overflowY: "auto", background: "white", padding: 8, borderRadius: 6, border: "1px solid var(--border)" }} dangerouslySetInnerHTML={{ __html: aiResult.description }} />
+                  </div>
+
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    style={{ width: "100%", marginTop: 8 }}
+                    onClick={applyAiContent}
+                  >
+                    Apply AI Suggestions
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}

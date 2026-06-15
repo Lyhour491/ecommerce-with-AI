@@ -17,6 +17,9 @@ function ProductDetail() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [wishlist, setWishlist] = useState([]);
+  const [aiRecommendations, setAiRecommendations] = useState([]);
+  const [loadingAiRec, setLoadingAiRec] = useState(false);
+
 
   useEffect(() => {
     try {
@@ -61,6 +64,21 @@ function ProductDetail() {
   }, [id]);
 
   useEffect(() => setActiveImage(0), [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    setLoadingAiRec(true);
+    api.get(`/ai/recommend-products?product_id=${id}`)
+      .then((res) => {
+        setAiRecommendations(res.data || []);
+      })
+      .catch((err) => {
+        console.error("Failed to load AI recommendations", err);
+        setAiRecommendations([]);
+      })
+      .finally(() => setLoadingAiRec(false));
+  }, [id]);
+
 
   const images = useMemo(() => productImages(product), [product]);
   const related = useMemo(() => {
@@ -164,7 +182,47 @@ function ProductDetail() {
           <section className="charge-card"><h2>⚡</h2><h3>Quick Delivery</h3><p>Fast order processing with trusted store fulfillment.</p><button>Learn More</button></section>
         </div>
 
+        {/* AI Smart Recommendations */}
+        {aiRecommendations.length > 0 && (
+          <section className="ai-recommendations" style={{ marginBottom: 40 }}>
+            <div className="ai-recommendations-header">
+              <span className="ai-badge">AI Suggested Pairs</span>
+              <h2 style={{ margin: "10px 0 0 0" }}>Recommended Accessories</h2>
+            </div>
+            <div className="ai-rec-grid" style={{ marginTop: 20 }}>
+              {aiRecommendations.map((item) => {
+                const recProduct = item.product;
+                const reason = item.reason;
+                return (
+                  <div
+                    key={recProduct.id}
+                    className="ai-rec-card"
+                    onClick={() => navigate(`/products/${recProduct.id}`)}
+                  >
+                    {recProduct.image ? (
+                      <img src={recProduct.image} alt={recProduct.name} />
+                    ) : (
+                      <div className="empty-img" style={{ height: 160 }}>No image</div>
+                    )}
+                    <div className="ai-rec-card-info">
+                      <small style={{ color: "var(--primary)", fontWeight: "bold", fontSize: 11 }}>
+                        {recProduct.category_name || "General"}
+                      </small>
+                      <h4 style={{ margin: "4px 0", fontSize: 15, fontWeight: "750" }}>{recProduct.name}</h4>
+                      <strong style={{ color: "var(--primary)", fontSize: 14 }}>{money(recProduct.price)}</strong>
+                    </div>
+                    <div className="ai-rec-reason">
+                      ✨ {reason}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
         <section className="related-section">
+
           <div className="section-title-row"><div><h2>Related Products</h2><p>You might also like these accessories</p></div><Link to="/products">View All →</Link></div>
           <div className="related-grid">
             {(related.length ? related : products.filter((item) => item.id !== product.id).slice(0, 4)).map((item) => {

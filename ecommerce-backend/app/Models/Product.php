@@ -18,8 +18,10 @@ class Product extends Model
         'price',
         'stock',
         'image',
+        'tags',
         'is_active',
     ];
+
 
     protected $casts = [
         'price' => 'decimal:2',

@@ -10,6 +10,8 @@ use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\AdminStatsController;
 use App\Http\Controllers\Api\ProductImageController;
 use App\Http\Controllers\Api\SellerProductController;
+use App\Http\Controllers\Api\AiController;
+
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -25,7 +27,11 @@ Route::get('/products', [ProductController::class, 'index']);
 Route::get('/top-products', [ProductController::class, 'topProducts']);
 Route::get('/products/{product}', [ProductController::class, 'show']);
 
+Route::post('/ai/chat', [AiController::class, 'chat']);
+Route::get('/ai/recommend-products', [AiController::class, 'recommendProducts']);
+
 Route::middleware('auth:sanctum')->group(function () {
+
     Route::get('/user', [AuthController::class, 'user']);
     Route::put('/user/profile', [AuthController::class, 'updateProfile']);
     Route::put('/user/password', [AuthController::class, 'updatePassword']);
@@ -65,7 +71,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/products/{product}', [SellerProductController::class, 'update']);
         Route::delete('/products/{product}', [SellerProductController::class, 'destroy']);
         Route::get('/orders', [SellerProductController::class, 'orders']);
+        Route::post('/ai/generate-product-content', [AiController::class, 'generateProductContent']);
     });
+
 
     // ── Customer routes ─────────────────────────────────────────────────
     Route::get('/cart', [CartController::class, 'index']);
