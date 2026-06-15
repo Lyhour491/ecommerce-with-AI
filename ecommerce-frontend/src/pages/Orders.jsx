@@ -25,43 +25,29 @@ function Orders() {
   const [showChatModal, setShowChatModal] = useState(false);
   const [chatInput, setChatInput] = useState("");
   const [chatTrigger, setChatTrigger] = useState(0);
+  const [chatMessages, setChatMessages] = useState([]);
 
-  // Helper to load chat messages from localStorage
-  const getChatMessages = (orderId) => {
-    const key = `chat_order_${orderId}`;
-    try {
-      const data = localStorage.getItem(key);
-      if (data) return JSON.parse(data);
-    } catch (e) {
-      console.error(e);
+  // Load chat messages from backend API
+  useEffect(() => {
+    if (showChatModal && selectedOrder) {
+      api.get(`/orders/${selectedOrder.id}/messages`)
+        .then((res) => {
+          setChatMessages(res.data || []);
+        })
+        .catch((err) => console.error("Failed to load chat messages", err));
     }
-    
-    // Default welcome messages
-    const defaults = [
-      { sender: "seller", text: "Hello! Thank you for purchasing from our store. We're here to help you with any questions about your order." }
-    ];
-    localStorage.setItem(key, JSON.stringify(defaults));
-    return defaults;
-  };
+  }, [showChatModal, selectedOrder, chatTrigger]);
 
-  // Helper to send customer message and trigger mock seller reply
+  // Send customer message to backend API
   const handleSendMessage = (orderId) => {
     if (!chatInput.trim()) return;
-    const key = `chat_order_${orderId}`;
-    const msgs = getChatMessages(orderId);
     
-    const updated = [...msgs, { sender: "customer", text: chatInput }];
-    localStorage.setItem(key, JSON.stringify(updated));
-    setChatInput("");
-    setChatTrigger((t) => t + 1);
-
-    // Dynamic mock response after 1s
-    setTimeout(() => {
-      const currentMsgs = getChatMessages(orderId);
-      const withReply = [...currentMsgs, { sender: "seller", text: "Thank you for the message. We have received your inquiry and will get back to you shortly." }];
-      localStorage.setItem(key, JSON.stringify(withReply));
-      setChatTrigger((t) => t + 1);
-    }, 1000);
+    api.post(`/orders/${orderId}/messages`, { text: chatInput })
+      .then(() => {
+        setChatInput("");
+        setChatTrigger((t) => t + 1);
+      })
+      .catch((err) => console.error("Failed to send message", err));
   };
 
   // Get current user details to check roles
@@ -497,7 +483,9 @@ function Orders() {
                 gap: 12,
                 backgroundColor: "#f8fafc"
               }}>
-                {getChatMessages(selectedOrder.id).map((msg, idx) => {
+                {(chatMessages.length > 0 ? chatMessages : [
+                  { sender: "seller", text: "Hello! Thank you for purchasing from our store. We're here to help you with any questions about your order." }
+                ]).map((msg, idx) => {
                   const isCustomer = msg.sender === "customer";
                   return (
                     <div 

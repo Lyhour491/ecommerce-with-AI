@@ -169,7 +169,7 @@ class SellerProductController extends Controller
     {
         $productIds = Product::where('user_id', $request->user()->id)->pluck('id');
 
-        $orders = \App\Models\Order::with(['user:id,name,email,role', 'orderItems.product.images', 'orderItems.product.category'])
+        $orders = \App\Models\Order::with(['user:id,name,email,role', 'orderItems.product.images', 'orderItems.product.category', 'messages'])
             ->whereHas('orderItems', function ($q) use ($productIds) {
                 $q->whereIn('product_id', $productIds);
             })

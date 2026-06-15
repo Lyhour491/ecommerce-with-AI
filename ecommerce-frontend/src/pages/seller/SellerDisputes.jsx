@@ -31,33 +31,32 @@ export default function SellerDisputes() {
     loadData();
   }, []);
 
-  // Helper to load chat messages from localStorage
-  const getChatMessages = (orderId) => {
-    const key = `chat_order_${orderId}`;
-    try {
-      const data = localStorage.getItem(key);
-      if (data) return JSON.parse(data);
-    } catch (e) {
-      console.error(e);
+  const [chatMessages, setChatMessages] = useState([]);
+
+  // Fetch messages dynamically when selected chat order changes
+  useEffect(() => {
+    if (selectedChatOrder && !selectedChatOrder.isMock) {
+      api.get(`/orders/${selectedChatOrder.orderId}/messages`)
+        .then((res) => {
+          setChatMessages(res.data || []);
+        })
+        .catch((err) => console.error("Failed to load chat messages", err));
+    } else {
+      setChatMessages([]);
     }
-    return [];
-  };
+  }, [selectedChatOrder, chatTrigger]);
 
   // Helper to send seller message
   const handleSendMessage = (orderId) => {
     if (!chatInput.trim()) return;
-    const key = `chat_order_${orderId}`;
-    const msgs = getChatMessages(orderId);
     
-    // Default system welcome if first message
-    const currentMsgs = msgs.length > 0 ? msgs : [
-      { sender: "seller", text: "Hello! Thank you for purchasing from our store. We're here to help you with any questions about your order." }
-    ];
-
-    const updated = [...currentMsgs, { sender: "seller", text: chatInput }];
-    localStorage.setItem(key, JSON.stringify(updated));
-    setChatInput("");
-    setChatTrigger((t) => t + 1);
+    api.post(`/orders/${orderId}/messages`, { text: chatInput })
+      .then(() => {
+        setChatInput("");
+        setChatTrigger((t) => t + 1);
+        loadData();
+      })
+      .catch((err) => console.error("Failed to send message", err));
   };
 
   // Build list of disputes/inquiries
@@ -99,9 +98,7 @@ export default function SellerDisputes() {
 
     // 2. Real orders with chats or marked as dispute
     const realDisputes = orders.map((order) => {
-      const chatKey = `chat_order_${order.id}`;
-      const chatData = localStorage.getItem(chatKey);
-      const messages = chatData ? JSON.parse(chatData) : [];
+      const messages = order.messages || [];
       const hasChat = messages.length > 0;
 
       // Only return if it has a chat session (or we can return all as potential inquiries)
@@ -162,7 +159,9 @@ export default function SellerDisputes() {
   const activeMessages = selectedChatOrder ? (
     selectedChatOrder.isMock 
       ? selectedChatOrder.mockMessages 
-      : getChatMessages(selectedChatOrder.orderId)
+      : (chatMessages.length > 0 ? chatMessages : [
+          { sender: "seller", text: "Hello! Thank you for purchasing from our store. We're here to help you with any questions about your order." }
+        ])
   ) : [];
 
   return (

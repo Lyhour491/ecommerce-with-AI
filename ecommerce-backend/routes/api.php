@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\AdminStatsController;
 use App\Http\Controllers\Api\ProductImageController;
 use App\Http\Controllers\Api\SellerProductController;
 use App\Http\Controllers\Api\AiController;
+use App\Http\Controllers\Api\MessageController;
 
 
 Route::post('/register', [AuthController::class, 'register']);
@@ -85,4 +86,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/checkout', [OrderController::class, 'checkout']);
     Route::get('/orders', [OrderController::class, 'index']);
     Route::get('/orders/{order}', [OrderController::class, 'show']);
+    Route::get('/orders/{order}/messages', [MessageController::class, 'index']);
+    Route::post('/orders/{order}/messages', [MessageController::class, 'store']);
 });
