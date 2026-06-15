@@ -19,6 +19,8 @@ import AdminProducts from "./pages/AdminProducts";
 import AdminOrders from "./pages/admin/AdminOrders";
 import AdminCustomers from "./pages/admin/AdminCustomers";
 import AdminSettings from "./pages/admin/AdminSettings";
+import AdminPayouts from "./pages/admin/AdminPayouts";
+import AdminDisputes from "./pages/admin/AdminDisputes";
 import UserSettings from "./pages/UserSettings";
 import SellerDashboard from "./pages/seller/SellerDashboard";
 import SellerProducts from "./pages/seller/SellerProducts";
@@ -26,6 +28,7 @@ import SellerOrders from "./pages/seller/SellerOrders";
 import SellerPayouts from "./pages/seller/SellerPayouts";
 import SellerAiInsights from "./pages/seller/SellerAiInsights";
 import SellerSettings from "./pages/seller/SellerSettings";
+import SellerDisputes from "./pages/seller/SellerDisputes";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import BecomeSeller from "./pages/BecomeSeller";
 import SellerApplicationForm from "./pages/SellerApplicationForm";
@@ -67,6 +70,8 @@ function App() {
           <Route path="products" element={<AdminProducts />} />
           <Route path="orders" element={<AdminOrders />} />
           <Route path="customers" element={<AdminCustomers />} />
+          <Route path="payouts" element={<AdminPayouts />} />
+          <Route path="disputes" element={<AdminDisputes />} />
           <Route path="settings" element={<AdminSettings />} />
         </Route>
       </Route>
@@ -79,6 +84,7 @@ function App() {
           <Route path="orders" element={<SellerOrders />} />
           <Route path="payouts" element={<SellerPayouts />} />
           <Route path="ai-insights" element={<SellerAiInsights />} />
+          <Route path="disputes" element={<SellerDisputes />} />
           <Route path="settings" element={<SellerSettings />} />
         </Route>
       </Route>

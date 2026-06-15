@@ -103,7 +103,7 @@ class GeminiService
     {
         if ($responseJson) {
             // Check if it's the product recommendation request
-            if (str_contains(strtolower($prompt), 'recommendations') || str_contains(strtolower($prompt), 'recommend')) {
+            if (str_contains(strtolower($prompt), 'candidate products') || str_contains(strtolower($prompt), 'base product')) {
                 return [
                     'recommendations' => [
                         [
@@ -127,7 +127,8 @@ class GeminiService
                 'name' => 'AI Generated ' . ucfirst(trim(str_replace(['generate', 'product', 'details', 'for'], '', strtolower($prompt)))),
                 'price' => 49.99,
                 'category_suggestion' => 'Electronics',
-                'description' => '<p><strong>Experience the ultimate performance</strong> with our newly crafted product.</p><ul><li>Premium materials and build quality</li><li>Sleek, ergonomic and modern design</li><li>Engineered for everyday efficiency and comfort</li><li>Satisfaction guaranteed with full 2-year warranty support</li></ul>'
+                'description' => '<p><strong>Experience the ultimate performance</strong> with our newly crafted product.</p><ul><li>Premium materials and build quality</li><li>Sleek, ergonomic and modern design</li><li>Engineered for everyday efficiency and comfort</li><li>Satisfaction guaranteed with full 2-year warranty support</li></ul>',
+                'tags' => 'premium, gadgets, modern, design'
             ];
         }
 

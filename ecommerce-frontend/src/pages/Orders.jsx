@@ -6,7 +6,7 @@ import {
   Package, Heart, TrendingUp, ShoppingCart, 
   Search, Settings, ArrowLeft, Store, ChevronRight,
   Eye, RefreshCw, MessageSquare, Download, MapPin, 
-  CreditCard, CheckCircle2, Truck, Check, Star, FileText
+  CreditCard, CheckCircle2, Truck, Check, Star, FileText, HelpCircle, Phone
 } from "lucide-react";
 
 function Orders() {
@@ -20,6 +20,49 @@ function Orders() {
   const [searchQuery, setSearchQuery] = useState("");
   const [cartCount, setCartCount] = useState(0);
   const [recommendations, setRecommendations] = useState([]);
+  
+  // Chat state hooks
+  const [showChatModal, setShowChatModal] = useState(false);
+  const [chatInput, setChatInput] = useState("");
+  const [chatTrigger, setChatTrigger] = useState(0);
+
+  // Helper to load chat messages from localStorage
+  const getChatMessages = (orderId) => {
+    const key = `chat_order_${orderId}`;
+    try {
+      const data = localStorage.getItem(key);
+      if (data) return JSON.parse(data);
+    } catch (e) {
+      console.error(e);
+    }
+    
+    // Default welcome messages
+    const defaults = [
+      { sender: "seller", text: "Hello! Thank you for purchasing from our store. We're here to help you with any questions about your order." }
+    ];
+    localStorage.setItem(key, JSON.stringify(defaults));
+    return defaults;
+  };
+
+  // Helper to send customer message and trigger mock seller reply
+  const handleSendMessage = (orderId) => {
+    if (!chatInput.trim()) return;
+    const key = `chat_order_${orderId}`;
+    const msgs = getChatMessages(orderId);
+    
+    const updated = [...msgs, { sender: "customer", text: chatInput }];
+    localStorage.setItem(key, JSON.stringify(updated));
+    setChatInput("");
+    setChatTrigger((t) => t + 1);
+
+    // Dynamic mock response after 1s
+    setTimeout(() => {
+      const currentMsgs = getChatMessages(orderId);
+      const withReply = [...currentMsgs, { sender: "seller", text: "Thank you for the message. We have received your inquiry and will get back to you shortly." }];
+      localStorage.setItem(key, JSON.stringify(withReply));
+      setChatTrigger((t) => t + 1);
+    }, 1000);
+  };
 
   // Get current user details to check roles
   const getStoredUser = () => {
@@ -347,8 +390,175 @@ function Orders() {
                 <span style={{ fontSize: 11, color: "#94a3b8" }}>Paid on {formattedDate}</span>
               </p>
             </div>
+
+            {/* Need Help? Card */}
+            <div className="orders-detail-card">
+              <div className="orders-detail-card-icon-title">
+                <HelpCircle size={16} className="orders-detail-card-icon" />
+                <span>Need Help?</span>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 12 }}>
+                <button 
+                  className="orders-btn-outline" 
+                  style={{ width: "100%", justifyContent: "flex-start", display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 8, fontSize: 13, fontWeight: 600, background: "none", cursor: "pointer", border: "1px solid #cbd5e1" }}
+                  onClick={() => setShowChatModal(true)}
+                >
+                  <MessageSquare size={15} />
+                  <span>Contact Seller</span>
+                </button>
+                <button 
+                  className="orders-btn-outline" 
+                  style={{ width: "100%", justifyContent: "flex-start", display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 8, fontSize: 13, fontWeight: 600, background: "none", cursor: "pointer", border: "1px solid #cbd5e1" }}
+                  onClick={() => alert("Return request initiated. Our support agent will contact you shortly.")}
+                >
+                  <RefreshCw size={15} />
+                  <span>Return Order</span>
+                </button>
+                <button 
+                  className="orders-btn-outline" 
+                  style={{ width: "100%", justifyContent: "flex-start", display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 8, fontSize: 13, fontWeight: 600, background: "none", cursor: "pointer", border: "1px solid #cbd5e1" }}
+                  onClick={() => alert("Calling Customer Support: 1-800-MARKETAI")}
+                >
+                  <Phone size={15} />
+                  <span>Customer Support</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
+
+        {/* Customer-Seller Chat Modal Overlay */}
+        {showChatModal && (
+          <div style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(15, 23, 42, 0.5)",
+            backdropFilter: "blur(4px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: 16
+          }} onClick={() => setShowChatModal(false)}>
+            <div style={{
+              backgroundColor: "#ffffff",
+              borderRadius: 16,
+              width: "100%",
+              maxWidth: 480,
+              height: 600,
+              maxHeight: "85vh",
+              display: "flex",
+              flexDirection: "column",
+              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+              overflow: "hidden",
+              border: "1px solid #e2e8f0"
+            }} onClick={(e) => e.stopPropagation()}>
+              {/* Header */}
+              <div style={{
+                padding: "16px 20px",
+                borderBottom: "1px solid #e2e8f0",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                backgroundColor: "#f8fafc"
+              }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Chat with Seller</h3>
+                  <span style={{ fontSize: 12, color: "#64748b" }}>Order ORD-2026-{String(selectedOrder.id).padStart(3, "0")}</span>
+                </div>
+                <button 
+                  onClick={() => setShowChatModal(false)}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    fontSize: 20,
+                    color: "#94a3b8",
+                    padding: 4,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center"
+                  }}
+                >
+                  &times;
+                </button>
+              </div>
+
+              {/* Message Area */}
+              <div style={{
+                flex: 1,
+                padding: 20,
+                overflowY: "auto",
+                display: "flex",
+                flexDirection: "column",
+                gap: 12,
+                backgroundColor: "#f8fafc"
+              }}>
+                {getChatMessages(selectedOrder.id).map((msg, idx) => {
+                  const isCustomer = msg.sender === "customer";
+                  return (
+                    <div 
+                      key={idx} 
+                      style={{
+                        alignSelf: isCustomer ? "flex-end" : "flex-start",
+                        maxWidth: "80%",
+                        backgroundColor: isCustomer ? "#2563eb" : "#ffffff",
+                        color: isCustomer ? "#ffffff" : "#0f172a",
+                        padding: "10px 14px",
+                        borderRadius: isCustomer ? "16px 16px 2px 16px" : "16px 16px 16px 2px",
+                        boxShadow: isCustomer ? "none" : "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
+                        border: isCustomer ? "none" : "1px solid #e2e8f0",
+                        fontSize: 14,
+                        lineHeight: "1.4"
+                      }}
+                    >
+                      {msg.text}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Footer Input */}
+              <div style={{
+                padding: 16,
+                borderTop: "1px solid #e2e8f0",
+                backgroundColor: "#ffffff",
+                display: "flex",
+                gap: 8
+              }}>
+                <input 
+                  type="text" 
+                  placeholder="Type your message..."
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleSendMessage(selectedOrder.id);
+                    }
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: "10px 14px",
+                    borderRadius: 8,
+                    border: "1px solid #cbd5e1",
+                    fontSize: 14,
+                    outline: "none"
+                  }}
+                />
+                <button 
+                  onClick={() => handleSendMessage(selectedOrder.id)}
+                  className="orders-btn-primary"
+                  style={{ padding: "10px 16px", borderRadius: 8, height: "auto" }}
+                >
+                  Send
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     );
   }

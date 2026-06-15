@@ -8,6 +8,7 @@ import {
   BrainCircuit,
   Settings,
   LogOut,
+  HelpCircle,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -48,6 +49,7 @@ export default function SellerLayout() {
           <SellerLink to="/seller/orders" icon={<ShoppingCart size={20} />} text="My Orders" />
           <SellerLink to="/seller/payouts" icon={<DollarSign size={20} />} text="Payouts" />
           <SellerLink to="/seller/ai-insights" icon={<BrainCircuit size={20} />} text="AI Insights" />
+          <SellerLink to="/seller/disputes" icon={<HelpCircle size={20} />} text="Disputes" />
           <SellerLink to="/seller/settings" icon={<Settings size={20} />} text="Store Settings" />
         </nav>
 

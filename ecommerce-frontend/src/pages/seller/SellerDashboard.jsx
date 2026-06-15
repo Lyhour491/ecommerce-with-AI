@@ -161,7 +161,7 @@ export default function SellerDashboard() {
                 <p className="no-data-text" style={{ color: "var(--muted)", textAlign: "center", padding: "20px 0" }}>No orders found.</p>
               ) : (
                 orders.slice(0, 3).map((order) => {
-                  const itemCount = (order.order_items || order.order_item_count || 1);
+                  const itemCount = (order.order_items?.length || order.order_item_count || 1);
                   const dateStr = new Date(order.created_at).toISOString().split('T')[0];
                   return (
                     <div className="seller-order-row-card" key={order.id}>
@@ -226,111 +226,106 @@ export default function SellerDashboard() {
         {/* Section 2: Revenue Breakdown & Performance Metrics */}
         <div className="seller-two-col-equal-grid">
           {/* Revenue Breakdown */}
-          <div className="seller-panel-white">
-            <div className="seller-panel-head">
-              <h2>Revenue Breakdown</h2>
-            </div>
-            <div className="seller-revenue-breakdown-card-list">
-              <div className="revenue-breakdown-row-item">
-                <div className="breakdown-left">
-                  <span className="breakdown-icon-bg blue-bg"><DollarSign size={16} /></span>
-                  <div className="breakdown-meta">
-                    <span className="breakdown-name">Gross Revenue</span>
-                  </div>
+          <div className="seller-dashboard-card">
+            <h2>Revenue Breakdown</h2>
+            <div className="revenue-breakdown-list">
+              <div className="revenue-card-item">
+                <div className="revenue-card-item-left">
+                  <span className="revenue-card-item-title">Gross Revenue</span>
+                  <span className="revenue-card-item-value">{money(grossRevenue)}</span>
                 </div>
-                <div className="breakdown-value-label">{money(grossRevenue)}</div>
+                <div className="revenue-card-icon-badge blue">
+                  <DollarSign size={20} />
+                </div>
               </div>
 
-              <div className="revenue-breakdown-row-item">
-                <div className="breakdown-left">
-                  <span className="breakdown-icon-bg red-bg"><Percent size={16} /></span>
-                  <div className="breakdown-meta">
-                    <span className="breakdown-name">Platform Fee (10%)</span>
-                  </div>
+              <div className="revenue-card-item">
+                <div className="revenue-card-item-left">
+                  <span className="revenue-card-item-title">Platform Fee (10%)</span>
+                  <span className="revenue-card-item-value negative">-{money(platformFee)}</span>
                 </div>
-                <div className="breakdown-value-label negative-val">-{money(platformFee)}</div>
+                <div className="revenue-card-icon-badge red">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
+                </div>
               </div>
 
-              <div className="revenue-breakdown-row-item">
-                <div className="breakdown-left">
-                  <span className="breakdown-icon-bg green-bg"><DollarSign size={16} /></span>
-                  <div className="breakdown-meta">
-                    <span className="breakdown-name">Net Revenue</span>
-                  </div>
+              <div className="revenue-card-item net-bg">
+                <div className="revenue-card-item-left">
+                  <span className="revenue-card-item-title">Net Revenue</span>
+                  <span className="revenue-card-item-value net">{money(netRevenue)}</span>
                 </div>
-                <div className="breakdown-value-label net-profit-val">{money(netRevenue)}</div>
+                <div className="revenue-card-icon-badge green">
+                  <DollarSign size={20} />
+                </div>
               </div>
             </div>
             <button 
               type="button" 
-              className="seller-action-btn-outline"
+              className="btn-full-width-outline"
               onClick={() => navigate("/seller/payouts")}
-              style={{ marginTop: 24 }}
             >
               View Detailed Earnings
             </button>
           </div>
 
           {/* Performance Metrics */}
-          <div className="seller-panel-white">
-            <div className="seller-panel-head">
-              <h2>Performance Metrics</h2>
-            </div>
-            <div className="seller-performance-metrics-list">
+          <div className="seller-dashboard-card">
+            <h2>Performance Metrics</h2>
+            <div className="performance-metrics-list">
               {/* Metric 1 */}
-              <div className="perf-metric-item">
-                <div className="perf-metric-header">
-                  <span className="perf-label">Order Completion Rate</span>
-                  <span className="perf-value">92%</span>
+              <div className="perf-row">
+                <div className="perf-label-container">
+                  <span>Order Completion Rate</span>
+                  <span className="perf-val-label">92%</span>
                 </div>
-                <div className="perf-progress-track">
-                  <div className="perf-progress-fill green-fill" style={{ width: "92%" }}></div>
+                <div className="perf-bar-track">
+                  <div className="perf-bar-fill green" style={{ width: "92%" }}></div>
                 </div>
               </div>
 
               {/* Metric 2 */}
-              <div className="perf-metric-item">
-                <div className="perf-metric-header">
-                  <span className="perf-label">Customer Satisfaction</span>
-                  <span className="perf-value">4.7 / 5.0</span>
+              <div className="perf-row">
+                <div className="perf-label-container">
+                  <span>Customer Satisfaction</span>
+                  <span className="perf-val-label">4.7 / 5.0</span>
                 </div>
-                <div className="perf-progress-track">
-                  <div className="perf-progress-fill blue-fill" style={{ width: "94%" }}></div>
+                <div className="perf-bar-track">
+                  <div className="perf-bar-fill blue" style={{ width: "94%" }}></div>
                 </div>
               </div>
 
               {/* Metric 3 */}
-              <div className="perf-metric-item">
-                <div className="perf-metric-header">
-                  <span className="perf-label">Response Time</span>
-                  <span className="perf-value">Excellent</span>
+              <div className="perf-row">
+                <div className="perf-label-container">
+                  <span>Response Time</span>
+                  <span className="perf-val-label">Excellent</span>
                 </div>
-                <div className="perf-progress-track">
-                  <div className="perf-progress-fill orange-fill" style={{ width: "100%" }}></div>
+                <div className="perf-bar-track">
+                  <div className="perf-bar-fill orange" style={{ width: "100%" }}></div>
                 </div>
               </div>
 
               {/* Metric 4 */}
-              <div className="perf-metric-item">
-                <div className="perf-metric-header">
-                  <span className="perf-label">Shipping Speed</span>
-                  <span className="perf-value">Good</span>
+              <div className="perf-row">
+                <div className="perf-label-container">
+                  <span>Shipping Speed</span>
+                  <span className="perf-val-label">Good</span>
                 </div>
-                <div className="perf-progress-track">
-                  <div className="perf-progress-fill blue-fill" style={{ width: "80%" }}></div>
+                <div className="perf-bar-track">
+                  <div className="perf-bar-fill cyan" style={{ width: "80%" }}></div>
                 </div>
               </div>
             </div>
             <button 
               type="button" 
-              className="seller-action-btn-outline"
+              className="btn-full-width-outline"
               onClick={() => navigate("/seller/ai-insights")}
-              style={{ marginTop: 24 }}
             >
               Get AI Insights
             </button>
           </div>
         </div>
+
 
       </div>
     </div>

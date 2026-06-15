@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
+import { 
+  Store, User, CreditCard, Truck, Bell, Mail, Phone, 
+  Globe, Upload, Save, CheckCircle, RotateCcw 
+} from "lucide-react";
 import api from "../../api/axios";
 import { firstApiError, unwrapUser } from "../../utils/store";
-import { Store, Save, ShieldAlert } from "lucide-react";
 
 export default function SellerSettings() {
   const [loading, setLoading] = useState(true);
@@ -9,45 +12,149 @@ export default function SellerSettings() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [rawUser, setRawUser] = useState(null);
+  
+  const [activeTab, setActiveTab] = useState("store"); // "store" | "business" | "payout" | "shipping" | "alerts"
 
-  const [form, setForm] = useState({
+  // Base profile details (saves to backend)
+  const [profileForm, setProfileForm] = useState({
     shop_name: "",
     shop_description: "",
-    shop_category: "",
     tax_id: "",
     website: "",
     business_phone: "",
     business_address: "",
-    business_city: "",
-    business_state: "",
-    business_zip: "",
-    business_country: "",
+    business_country: "United States",
   });
+
+  // Extended merchant configurations (persisted to localStorage)
+  const [extendedForm, setExtendedForm] = useState({
+    shop_slug: "techvendor",
+    legal_business_name: "TechVendor Inc.",
+    email: "contact@techvendor.com",
+    
+    // Payout settings
+    payout_method: "bank",
+    bank_name: "Chase Bank",
+    account_name: "TechVendor Inc.",
+    account_number: "•••• 4567",
+    routing_number: "123456789",
+    paypal_email: "billing@techvendor.com",
+
+    // Shipping settings
+    free_shipping_threshold: "50",
+    processing_time: "1-2",
+    standard_shipping_rate: "5.99",
+    express_shipping_rate: "12.99",
+    return_window: "30",
+
+    // Alerts settings
+    new_orders: true,
+    low_stock: true,
+    customer_messages: true,
+    product_reviews: true,
+    payment_received: true,
+    marketing_emails: false,
+  });
+
+  const defaultExtendedForm = {
+    shop_slug: "techvendor",
+    legal_business_name: "TechVendor Inc.",
+    email: "contact@techvendor.com",
+    payout_method: "bank",
+    bank_name: "Chase Bank",
+    account_name: "TechVendor Inc.",
+    account_number: "•••• 4567",
+    routing_number: "123456789",
+    paypal_email: "billing@techvendor.com",
+    free_shipping_threshold: "50",
+    processing_time: "1-2",
+    standard_shipping_rate: "5.99",
+    express_shipping_rate: "12.99",
+    return_window: "30",
+    new_orders: true,
+    low_stock: true,
+    customer_messages: true,
+    product_reviews: true,
+    payment_received: true,
+    marketing_emails: false,
+  };
 
   useEffect(() => {
     api.get("/user")
       .then((res) => {
         const user = unwrapUser(res.data);
         setRawUser(user);
-        setForm({
+        
+        setProfileForm({
           shop_name: user.shop_name || "",
           shop_description: user.shop_description || "",
-          shop_category: user.shop_category || "",
           tax_id: user.tax_id || "",
           website: user.website || "",
           business_phone: user.business_phone || "",
           business_address: user.business_address || "",
-          business_city: user.business_city || "",
-          business_state: user.business_state || "",
-          business_zip: user.business_zip || "",
-          business_country: user.business_country || "",
+          business_country: user.business_country || "United States",
         });
+
+        // Load extended state if previously saved
+        const saved = localStorage.getItem(`seller_extended_settings_${user.id}`);
+        if (saved) {
+          try {
+            setExtendedForm(JSON.parse(saved));
+          } catch (e) {
+            console.error("Failed to parse settings", e);
+          }
+        } else {
+          // Initialize defaults
+          setExtendedForm({
+            ...defaultExtendedForm,
+            shop_slug: (user.shop_name || "techvendor").toLowerCase().replace(/[^a-z0-9]/g, "-"),
+            email: user.email || "contact@techvendor.com",
+            legal_business_name: (user.shop_name || "TechVendor") + " Inc.",
+          });
+        }
       })
       .catch((err) => setError(firstApiError(err, "Failed to load seller settings.")))
       .finally(() => setLoading(false));
   }, []);
 
-  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+  const handleProfileChange = (e) => {
+    setProfileForm({ ...profileForm, [e.target.name]: e.target.value });
+  };
+
+  const handleExtendedChange = (e) => {
+    setExtendedForm({ ...extendedForm, [e.target.name]: e.target.value });
+  };
+
+  const toggleAlert = (field) => {
+    setExtendedForm({ ...extendedForm, [field]: !extendedForm[field] });
+  };
+
+  const handleReset = () => {
+    if (!confirm("Reset all settings to default values?")) return;
+    
+    // Reset profile fields to backend values
+    if (rawUser) {
+      setProfileForm({
+        shop_name: rawUser.shop_name || "",
+        shop_description: rawUser.shop_description || "",
+        tax_id: rawUser.tax_id || "",
+        website: rawUser.website || "",
+        business_phone: rawUser.business_phone || "",
+        business_address: rawUser.business_address || "",
+        business_country: rawUser.business_country || "United States",
+      });
+
+      const resetExt = {
+        ...defaultExtendedForm,
+        shop_slug: (rawUser.shop_name || "techvendor").toLowerCase().replace(/[^a-z0-9]/g, "-"),
+        email: rawUser.email || "contact@techvendor.com",
+        legal_business_name: (rawUser.shop_name || "TechVendor") + " Inc.",
+      };
+      setExtendedForm(resetExt);
+      localStorage.setItem(`seller_extended_settings_${rawUser.id}`, JSON.stringify(resetExt));
+      setMessage("Settings reset to defaults successfully.");
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -56,15 +163,20 @@ export default function SellerSettings() {
     setError("");
 
     try {
+      // Save primary fields to backend
       const res = await api.put("/user/profile", {
         name: rawUser?.name || "Seller",
         email: rawUser?.email || "",
-        ...form
+        ...profileForm
       });
       const user = unwrapUser(res.data);
       setRawUser(user);
       localStorage.setItem("user", JSON.stringify(user));
-      setMessage("Store settings updated successfully.");
+
+      // Save custom fields locally
+      localStorage.setItem(`seller_extended_settings_${user.id}`, JSON.stringify(extendedForm));
+      
+      setMessage("Settings updated successfully.");
     } catch (err) {
       setError(firstApiError(err, "Failed to save settings."));
     } finally {
@@ -76,110 +188,500 @@ export default function SellerSettings() {
 
   return (
     <div className="merchant-dashboard">
-      {/* Top Bar */}
+      {/* Top Header */}
       <div className="merchant-topbar">
         <div className="product-like-topbar">
-          <h1>Store Settings</h1>
+          <h1>Settings</h1>
         </div>
         <div className="merchant-top-actions">
           <span>Seller Account ID: <b>#{rawUser?.id}</b></span>
-          <div className="mini-profile">S</div>
+          <div className="mini-profile">{(rawUser?.name || "S").charAt(0).toUpperCase()}</div>
         </div>
       </div>
 
-      <div className="merchant-content" style={{ maxWidth: 880 }}>
-        <div className="merchant-title-row">
-          <h1>Merchant Configurations</h1>
-          <p>Update your shop profile details, primary categories, and billing specifications.</p>
+      <div className="merchant-content" style={{ maxWidth: 880, margin: "0 auto", padding: "24px 22px" }}>
+        
+        <div className="settings-header-row">
+          <h1>Store Settings</h1>
+          <p>Manage your store configuration and preferences</p>
+        </div>
+
+        {/* Dynamic Tabs Navigation */}
+        <div className="settings-tabs-container">
+          <button 
+            type="button" 
+            className={`settings-tab-btn ${activeTab === "store" ? "active" : ""}`}
+            onClick={() => setActiveTab("store")}
+          >
+            <Store size={15} /> Store
+          </button>
+          <button 
+            type="button" 
+            className={`settings-tab-btn ${activeTab === "business" ? "active" : ""}`}
+            onClick={() => setActiveTab("business")}
+          >
+            <User size={15} /> Business
+          </button>
+          <button 
+            type="button" 
+            className={`settings-tab-btn ${activeTab === "payout" ? "active" : ""}`}
+            onClick={() => setActiveTab("payout")}
+          >
+            <CreditCard size={15} /> Payout
+          </button>
+          <button 
+            type="button" 
+            className={`settings-tab-btn ${activeTab === "shipping" ? "active" : ""}`}
+            onClick={() => setActiveTab("shipping")}
+          >
+            <Truck size={15} /> Shipping
+          </button>
+          <button 
+            type="button" 
+            className={`settings-tab-btn ${activeTab === "alerts" ? "active" : ""}`}
+            onClick={() => setActiveTab("alerts")}
+          >
+            <Bell size={15} /> Alerts
+          </button>
         </div>
 
         {message && <div className="alert alert-success">{message}</div>}
         {error && <div className="alert alert-error">{error}</div>}
 
-        {/* Seller Status Card */}
-        <div className="card" style={{ background: "white", padding: 20, marginBottom: 26, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
-            <div className="metric-icon blue" style={{ width: 44, height: 44, borderRadius: 12 }}>
-              <Store size={20} />
-            </div>
-            <div>
-              <h3 style={{ margin: "0 0 4px", fontSize: 16 }}>Seller Status</h3>
-              <p style={{ margin: 0, color: "var(--muted)", fontSize: 13 }}>Your seller application has been fully validated.</p>
-            </div>
-          </div>
-          <div>
-            {rawUser?.seller_status === "approved" && <span className="status completed">Approved Seller</span>}
-            {rawUser?.seller_status === "pending" && <span className="status pending">Pending Approval</span>}
-            {rawUser?.seller_status === "rejected" && <span className="status cancelled">Rejected</span>}
-          </div>
-        </div>
-
-        <form onSubmit={handleSubmit} className="card stitch-form" style={{ background: "white", padding: 26 }}>
-          <h3>Shop Profile</h3>
+        <form onSubmit={handleSubmit}>
           
-          <div className="create-product-grid" style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 16 }}>
-            <label>
-              <span>Shop Display Name *</span>
-              <input name="shop_name" value={form.shop_name} onChange={handleChange} required placeholder="e.g. Acme Gadgets" />
-            </label>
-            <label>
-              <span>Primary Category *</span>
-              <input name="shop_category" value={form.shop_category} onChange={handleChange} required placeholder="e.g. Electronics, Fashion" />
-            </label>
-          </div>
+          {/* TAB 1: Store Information */}
+          {activeTab === "store" && (
+            <div className="settings-card">
+              <h3>Store Information</h3>
+              
+              {/* Store Logo Upload Area */}
+              <div className="logo-upload-section">
+                <div className="logo-preview-box">
+                  <Store size={28} />
+                </div>
+                <div className="logo-upload-info">
+                  <button type="button" className="btn-upload-logo-action" onClick={() => alert("Upload feature simulated. Double check your settings.")}>
+                    <Upload size={13} /> Upload Logo
+                  </button>
+                  <span style={{ fontSize: 11, color: "var(--muted)" }}>Recommended: 400x400px, PNG or JPG</span>
+                </div>
+              </div>
 
-          <label style={{ marginTop: 8 }}>
-            <span>Shop Description *</span>
-            <textarea name="shop_description" value={form.shop_description} onChange={handleChange} rows={3} required placeholder="Describe your store brand, target market, or details..." />
-          </label>
+              {/* Form Grid */}
+              <div style={{ display: "grid", gap: 16 }}>
+                <label>
+                  <span>Store Name</span>
+                  <input 
+                    name="shop_name" 
+                    value={profileForm.shop_name} 
+                    onChange={handleProfileChange} 
+                    required 
+                    placeholder="Enter store display name" 
+                  />
+                </label>
 
-          <div className="create-product-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1.5fr", gap: 16, marginTop: 8 }}>
-            <label>
-              <span>Tax ID / EIN *</span>
-              <input name="tax_id" value={form.tax_id} onChange={handleChange} required placeholder="12-345678" />
-            </label>
-            <label>
-              <span>Store Website</span>
-              <input name="website" value={form.website} onChange={handleChange} placeholder="https://www.example.com" />
-            </label>
-          </div>
+                <div>
+                  <span style={{ display: "block", fontWeight: 700, color: "var(--muted)", fontSize: 14, marginBottom: 7 }}>Store URL</span>
+                  <div className="url-prefix-wrapper">
+                    <span className="url-prefix-label">marketplace.com/</span>
+                    <input 
+                      name="shop_slug" 
+                      value={extendedForm.shop_slug} 
+                      onChange={handleExtendedChange} 
+                      required 
+                      placeholder="storeurl" 
+                    />
+                  </div>
+                </div>
 
-          <h3 style={{ marginTop: 28 }}>Business Location Details</h3>
-          <div className="create-product-grid" style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 16 }}>
-            <label>
-              <span>Business Address *</span>
-              <input name="business_address" value={form.business_address} onChange={handleChange} required placeholder="123 Corporate Way" />
-            </label>
-            <label>
-              <span>Business Phone *</span>
-              <input name="business_phone" value={form.business_phone} onChange={handleChange} required placeholder="+1 (555) 012-3456" />
-            </label>
-          </div>
+                <label>
+                  <span>Store Description</span>
+                  <textarea 
+                    name="shop_description" 
+                    value={profileForm.shop_description} 
+                    onChange={handleProfileChange} 
+                    rows={4} 
+                    required 
+                    placeholder="Describe your store..." 
+                  />
+                </label>
 
-          <div className="create-product-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginTop: 8 }}>
-            <label>
-              <span>City *</span>
-              <input name="business_city" value={form.business_city} onChange={handleChange} required placeholder="San Francisco" />
-            </label>
-            <label>
-              <span>State / Prov *</span>
-              <input name="business_state" value={form.business_state} onChange={handleChange} required placeholder="CA" />
-            </label>
-            <label>
-              <span>ZIP *</span>
-              <input name="business_zip" value={form.business_zip} onChange={handleChange} required placeholder="94103" />
-            </label>
-            <label>
-              <span>Country *</span>
-              <input name="business_country" value={form.business_country} onChange={handleChange} required placeholder="United States" />
-            </label>
-          </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                  <label>
+                    <span>Email</span>
+                    <div className="input-icon-wrapper">
+                      <Mail size={16} />
+                      <input 
+                        name="email" 
+                        value={extendedForm.email} 
+                        onChange={handleExtendedChange} 
+                        required 
+                        placeholder="contact@store.com" 
+                      />
+                    </div>
+                  </label>
+                  
+                  <label>
+                    <span>Phone</span>
+                    <div className="input-icon-wrapper">
+                      <Phone size={16} />
+                      <input 
+                        name="business_phone" 
+                        value={profileForm.business_phone} 
+                        onChange={handleProfileChange} 
+                        required 
+                        placeholder="+1 (555) 123-4567" 
+                      />
+                    </div>
+                  </label>
+                </div>
 
-          <div style={{ textAlign: "right", marginTop: 24 }}>
-            <button className="btn btn-primary" type="submit" disabled={saving}>
-              <Save size={18} /> {saving ? "Saving Configurations..." : "Save Settings"}
+                <label>
+                  <span>Website (Optional)</span>
+                  <div className="input-icon-wrapper">
+                    <Globe size={16} />
+                    <input 
+                      name="website" 
+                      value={profileForm.website} 
+                      onChange={handleProfileChange} 
+                      placeholder="https://yourstore.com" 
+                    />
+                  </div>
+                </label>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: Business Information */}
+          {activeTab === "business" && (
+            <div className="settings-card">
+              <h3>Business Information</h3>
+              <div style={{ display: "grid", gap: 16 }}>
+                <label>
+                  <span>Legal Business Name</span>
+                  <input 
+                    name="legal_business_name" 
+                    value={extendedForm.legal_business_name} 
+                    onChange={handleExtendedChange} 
+                    required 
+                    placeholder="Acme Corporation" 
+                  />
+                </label>
+
+                <label>
+                  <span>Tax ID / EIN</span>
+                  <input 
+                    name="tax_id" 
+                    value={profileForm.tax_id} 
+                    onChange={handleProfileChange} 
+                    required 
+                    placeholder="12-3456789" 
+                  />
+                </label>
+
+                <label>
+                  <span>Business Address</span>
+                  <textarea 
+                    name="business_address" 
+                    value={profileForm.business_address} 
+                    onChange={handleProfileChange} 
+                    rows={3} 
+                    required 
+                    placeholder="123 Corporate Way, Suite 100" 
+                  />
+                </label>
+
+                <label>
+                  <span>Country</span>
+                  <select 
+                    name="business_country" 
+                    value={profileForm.business_country} 
+                    onChange={handleProfileChange}
+                    required
+                  >
+                    <option value="United States">United States</option>
+                    <option value="United Kingdom">United Kingdom</option>
+                    <option value="Canada">Canada</option>
+                    <option value="Australia">Australia</option>
+                    <option value="Germany">Germany</option>
+                    <option value="France">France</option>
+                  </select>
+                </label>
+
+                {/* Verification Status Card */}
+                <div className="verification-status-banner">
+                  <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                    <CheckCircle size={22} style={{ color: "#2563eb" }} />
+                    <div>
+                      <strong style={{ display: "block", fontSize: 14, color: "#1e3a8a", marginBottom: 2 }}>Verification Status</strong>
+                      <span style={{ fontSize: 13, color: "#3b82f6" }}>Your business information has been verified</span>
+                    </div>
+                  </div>
+                  <span className="verification-badge">Verified</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: Payout Settings */}
+          {activeTab === "payout" && (
+            <div className="settings-card">
+              <h3>Payout Information</h3>
+              <div style={{ display: "grid", gap: 16 }}>
+                <label>
+                  <span>Payout Method</span>
+                  <select 
+                    name="payout_method" 
+                    value={extendedForm.payout_method} 
+                    onChange={handleExtendedChange}
+                  >
+                    <option value="bank">Bank Account Transfer</option>
+                    <option value="paypal">PayPal Account</option>
+                  </select>
+                </label>
+
+                {extendedForm.payout_method === "bank" ? (
+                  <>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                      <label>
+                        <span>Bank Name</span>
+                        <input 
+                          name="bank_name" 
+                          value={extendedForm.bank_name} 
+                          onChange={handleExtendedChange} 
+                          placeholder="e.g. Chase Bank" 
+                        />
+                      </label>
+                      <label>
+                        <span>Account Holder Name</span>
+                        <input 
+                          name="account_name" 
+                          value={extendedForm.account_name} 
+                          onChange={handleExtendedChange} 
+                          placeholder="Legal Account Name" 
+                        />
+                      </label>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1.2fr .8fr", gap: 16 }}>
+                      <label>
+                        <span>Account Number / IBAN</span>
+                        <input 
+                          name="account_number" 
+                          value={extendedForm.account_number} 
+                          onChange={handleExtendedChange} 
+                          placeholder="•••• 4567" 
+                        />
+                      </label>
+                      <label>
+                        <span>Routing Number</span>
+                        <input 
+                          name="routing_number" 
+                          value={extendedForm.routing_number} 
+                          onChange={handleExtendedChange} 
+                          placeholder="Routing code" 
+                        />
+                      </label>
+                    </div>
+                  </>
+                ) : (
+                  <label>
+                    <span>PayPal Email</span>
+                    <div className="input-icon-wrapper">
+                      <Mail size={16} />
+                      <input 
+                        name="paypal_email" 
+                        value={extendedForm.paypal_email} 
+                        onChange={handleExtendedChange} 
+                        placeholder="paypal@yourdomain.com" 
+                      />
+                    </div>
+                  </label>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 4: Shipping Settings */}
+          {activeTab === "shipping" && (
+            <div className="settings-card">
+              <h3>Shipping Settings</h3>
+              <div style={{ display: "grid", gap: 16 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+                  <label>
+                    <span>Free Shipping Threshold ($)</span>
+                    <input 
+                      type="number"
+                      name="free_shipping_threshold" 
+                      value={extendedForm.free_shipping_threshold} 
+                      onChange={handleExtendedChange} 
+                      placeholder="50" 
+                    />
+                  </label>
+                  
+                  <label>
+                    <span>Processing Time (days)</span>
+                    <input 
+                      name="processing_time" 
+                      value={extendedForm.processing_time} 
+                      onChange={handleExtendedChange} 
+                      placeholder="1-2" 
+                    />
+                  </label>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+                  <label>
+                    <span>Standard Shipping Rate ($)</span>
+                    <input 
+                      type="number"
+                      step="0.01"
+                      name="standard_shipping_rate" 
+                      value={extendedForm.standard_shipping_rate} 
+                      onChange={handleExtendedChange} 
+                      placeholder="5.99" 
+                    />
+                  </label>
+                  
+                  <label>
+                    <span>Express Shipping Rate ($)</span>
+                    <input 
+                      type="number"
+                      step="0.01"
+                      name="express_shipping_rate" 
+                      value={extendedForm.express_shipping_rate} 
+                      onChange={handleExtendedChange} 
+                      placeholder="12.99" 
+                    />
+                  </label>
+                </div>
+
+                <label style={{ maxWidth: "50%" }}>
+                  <span>Return Window (days)</span>
+                  <input 
+                    type="number"
+                    name="return_window" 
+                    value={extendedForm.return_window} 
+                    onChange={handleExtendedChange} 
+                    placeholder="30" 
+                  />
+                </label>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 5: Alerts Notification Preferences */}
+          {activeTab === "alerts" && (
+            <div className="settings-card">
+              <h3>Notification Preferences</h3>
+              <div className="alerts-list-container">
+                <div className="alert-preference-row">
+                  <div className="alert-preference-left">
+                    <span className="alert-preference-title">New Orders</span>
+                    <span className="alert-preference-desc">Receive notifications for new orders</span>
+                  </div>
+                  <button 
+                    type="button" 
+                    className={`btn-toggle-switch ${extendedForm.new_orders ? "enabled" : "disabled"}`}
+                    onClick={() => toggleAlert("new_orders")}
+                  >
+                    {extendedForm.new_orders ? "Enabled" : "Disabled"}
+                  </button>
+                </div>
+
+                <div className="alert-preference-row">
+                  <div className="alert-preference-left">
+                    <span className="alert-preference-title">Low Stock</span>
+                    <span className="alert-preference-desc">Receive notifications for low stock</span>
+                  </div>
+                  <button 
+                    type="button" 
+                    className={`btn-toggle-switch ${extendedForm.low_stock ? "enabled" : "disabled"}`}
+                    onClick={() => toggleAlert("low_stock")}
+                  >
+                    {extendedForm.low_stock ? "Enabled" : "Disabled"}
+                  </button>
+                </div>
+
+                <div className="alert-preference-row">
+                  <div className="alert-preference-left">
+                    <span className="alert-preference-title">Customer Messages</span>
+                    <span className="alert-preference-desc">Receive notifications for customer messages</span>
+                  </div>
+                  <button 
+                    type="button" 
+                    className={`btn-toggle-switch ${extendedForm.customer_messages ? "enabled" : "disabled"}`}
+                    onClick={() => toggleAlert("customer_messages")}
+                  >
+                    {extendedForm.customer_messages ? "Enabled" : "Disabled"}
+                  </button>
+                </div>
+
+                <div className="alert-preference-row">
+                  <div className="alert-preference-left">
+                    <span className="alert-preference-title">Product Reviews</span>
+                    <span className="alert-preference-desc">Receive notifications for product reviews</span>
+                  </div>
+                  <button 
+                    type="button" 
+                    className={`btn-toggle-switch ${extendedForm.product_reviews ? "enabled" : "disabled"}`}
+                    onClick={() => toggleAlert("product_reviews")}
+                  >
+                    {extendedForm.product_reviews ? "Enabled" : "Disabled"}
+                  </button>
+                </div>
+
+                <div className="alert-preference-row">
+                  <div className="alert-preference-left">
+                    <span className="alert-preference-title">Payment Received</span>
+                    <span className="alert-preference-desc">Receive notifications for payment received</span>
+                  </div>
+                  <button 
+                    type="button" 
+                    className={`btn-toggle-switch ${extendedForm.payment_received ? "enabled" : "disabled"}`}
+                    onClick={() => toggleAlert("payment_received")}
+                  >
+                    {extendedForm.payment_received ? "Enabled" : "Disabled"}
+                  </button>
+                </div>
+
+                <div className="alert-preference-row">
+                  <div className="alert-preference-left">
+                    <span className="alert-preference-title">Marketing Emails</span>
+                    <span className="alert-preference-desc">Receive notifications for marketing emails</span>
+                  </div>
+                  <button 
+                    type="button" 
+                    className={`btn-toggle-switch ${extendedForm.marketing_emails ? "enabled" : "disabled"}`}
+                    onClick={() => toggleAlert("marketing_emails")}
+                  >
+                    {extendedForm.marketing_emails ? "Enabled" : "Disabled"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Form Actions */}
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 16 }}>
+            <button 
+              type="button" 
+              className="btn-cancel-form" 
+              onClick={handleReset} 
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "0 20px", height: 44 }}
+            >
+              <RotateCcw size={15} /> Reset to Defaults
+            </button>
+            <button 
+              type="submit" 
+              className="btn-save-form" 
+              disabled={saving}
+              style={{ height: 44 }}
+            >
+              <Save size={16} /> {saving ? "Saving Settings..." : "Save Settings"}
             </button>
           </div>
+
         </form>
       </div>
     </div>

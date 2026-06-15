@@ -155,19 +155,22 @@ class SellerTest extends TestCase
             'description' => 'High performance laptop',
             'price' => 999.99,
             'stock' => 5,
+            'tags' => 'laptop, tech, gaming',
         ];
 
         $response = $this->actingAs($seller, 'sanctum')
             ->postJson('/api/seller/products', $payload);
 
         $response->assertStatus(201)
-            ->assertJsonPath('product.name', 'New Laptop model X');
+            ->assertJsonPath('product.name', 'New Laptop model X')
+            ->assertJsonPath('product.tags', 'laptop, tech, gaming');
 
         $this->assertDatabaseHas('products', [
             'user_id' => $seller->id,
             'name' => 'New Laptop model X',
             'price' => 999.99,
             'stock' => 5,
+            'tags' => 'laptop, tech, gaming',
         ]);
     }
 
@@ -204,6 +207,7 @@ class SellerTest extends TestCase
             'description' => 'Updated description',
             'price' => 45.00,
             'stock' => 15,
+            'tags' => 'laravel, php, book',
         ];
 
         $response = $this->actingAs($seller, 'sanctum')
@@ -214,6 +218,7 @@ class SellerTest extends TestCase
         $this->assertEquals('Laravel Book 2nd Edition', $product->name);
         $this->assertEquals('Updated description', $product->description);
         $this->assertEquals(45.00, $product->price);
+        $this->assertEquals('laravel, php, book', $product->tags);
     }
 
     public function test_seller_cannot_manage_other_seller_product(): void

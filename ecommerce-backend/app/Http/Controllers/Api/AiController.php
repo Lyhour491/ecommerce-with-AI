@@ -193,14 +193,15 @@ class AiController extends Controller
 
         $prompt = "Generate optimized e-commerce product listings information based on keywords or short prompt: '{$promptInput}'.\n"
             . "Recommend one of these existing store categories if possible: {$categoriesList}.\n"
-            . "Create a professional title, a competitive suggested price, the recommended category, and an engaging HTML-formatted description outlining key features, specs, and care tips.";
+            . "Create a professional title, a competitive suggested price, the recommended category, an engaging HTML-formatted description outlining key features, specs, and care tips, and a list of comma-separated search/SEO tags.";
 
         $systemInstruction = "You are a professional e-commerce product catalog manager. Respond ONLY with a valid JSON matching this schema:\n"
             . "{\n"
             . "  \"name\": \"Optimized Title\",\n"
             . "  \"price\": 39.99,\n"
             . "  \"category_suggestion\": \"Electronics\",\n"
-            . "  \"description\": \"<p>Product Description in clean HTML</p>\"\n"
+            . "  \"description\": \"<p>Product Description in clean HTML</p>\",\n"
+            . "  \"tags\": \"tag1, tag2, tag3\"\n"
             . "}\n"
             . "Do not write any markdown outside of the JSON block.";
 

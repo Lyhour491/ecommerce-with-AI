@@ -6,6 +6,8 @@ import {
   Users,
   Settings,
   Store,
+  DollarSign,
+  AlertTriangle,
 } from "lucide-react";
 
 export default function AdminLayout() {
@@ -15,7 +17,7 @@ export default function AdminLayout() {
         <div className="merchant-brand">
           <div className="merchant-brand-icon"><Store size={22} /></div>
           <div>
-            <h1>MerchantPro</h1>
+            <h1>MarketAI</h1>
             <p>Enterprise Admin</p>
           </div>
         </div>
@@ -25,6 +27,8 @@ export default function AdminLayout() {
           <AdminLink to="/admin/products" icon={<Package size={20} />} text="Product Management" />
           <AdminLink to="/admin/orders" icon={<ShoppingCart size={20} />} text="Order Management" />
           <AdminLink to="/admin/customers" icon={<Users size={20} />} text="Customer Insights" />
+          <AdminLink to="/admin/payouts" icon={<DollarSign size={20} />} text="Commission Payouts" />
+          <AdminLink to="/admin/disputes" icon={<AlertTriangle size={20} />} text="Disputes" />
           <AdminLink to="/admin/settings" icon={<Settings size={20} />} text="Settings" />
         </nav>
 

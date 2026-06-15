@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
 import api from "../../api/axios";
-import { money, getImageUrl, firstApiError } from "../../utils/store";
+import { money, getImageUrl, firstApiError, unwrapList } from "../../utils/store";
 import { Plus, Pencil, Trash2, X, FileEdit, Sparkles } from "lucide-react";
 
 export default function SellerProducts() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
+  const [viewMode, setViewMode] = useState("list");
   const [editing, setEditing] = useState(null);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -20,6 +20,7 @@ export default function SellerProducts() {
     category_id: "",
     image_urls: [""],
     replace_images: false,
+    tags: "",
   };
   const [form, setForm] = useState(emptyForm);
   const [files, setFiles] = useState([]);
@@ -62,6 +63,7 @@ export default function SellerProducts() {
       price: aiResult.price || form.price,
       description: aiResult.description || form.description,
       category_id: matchedCatId || form.category_id,
+      tags: aiResult.tags || form.tags,
     });
 
     setShowAiAssist(false);
@@ -73,8 +75,7 @@ export default function SellerProducts() {
   useEffect(() => {
     loadProducts();
     api.get("/categories").then((r) => {
-      const list = Array.isArray(r.data) ? r.data : r.data?.data || [];
-      setCategories(list);
+      setCategories(unwrapList(r.data, ["categories"]));
     });
   }, []);
 
@@ -90,10 +91,10 @@ export default function SellerProducts() {
 
   const openCreate = () => {
     setEditing(null);
-    setForm(emptyForm);
+    setForm({ ...emptyForm, tags: "" });
     setFiles([]);
     setError("");
-    setShowModal(true);
+    setViewMode("add");
   };
 
   const openEdit = (product) => {
@@ -106,10 +107,11 @@ export default function SellerProducts() {
       category_id: product.category_id || "",
       image_urls: product.image_urls?.length ? [...product.image_urls] : [""],
       replace_images: false,
+      tags: product.tags || "",
     });
     setFiles([]);
     setError("");
-    setShowModal(true);
+    setViewMode("edit");
   };
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
@@ -138,6 +140,7 @@ export default function SellerProducts() {
     formData.append("price", form.price);
     formData.append("stock", form.stock);
     formData.append("category_id", form.category_id);
+    formData.append("tags", form.tags || "");
 
     if (editing && form.replace_images) {
       formData.append("replace_images", "1");
@@ -156,7 +159,7 @@ export default function SellerProducts() {
       } else {
         await api.post("/seller/products", formData);
       }
-      setShowModal(false);
+      setViewMode("list");
       loadProducts();
     } catch (err) {
       setError(firstApiError(err, "Failed to save product."));
@@ -177,147 +180,205 @@ export default function SellerProducts() {
 
   return (
     <div className="merchant-dashboard">
-      {/* Top Bar */}
-      <div className="merchant-topbar">
-        <div className="product-like-topbar">
-          <h1>Product Catalog</h1>
-        </div>
-        <div className="product-like-actions">
-          <button className="btn-add-product" onClick={openCreate}>
-            <Plus size={18} /> Add Product
-          </button>
-        </div>
-      </div>
-
-      <div className="merchant-content">
-        <div className="merchant-title-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
-          <div>
-            <h1>My Products</h1>
-            <p>Manage and optimize your store listings.</p>
-          </div>
-          <span style={{ color: "var(--muted)", fontWeight: "bold" }}>Total: {products.length} products</span>
-        </div>
-
-        {error && <div className="alert alert-error">{error}</div>}
-
-        {loading ? (
-          <div className="seller-loading">Loading products...</div>
-        ) : products.length === 0 ? (
-          <div className="card" style={{ padding: "80px 20px", textAlign: "center", background: "white", display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
-            <div style={{ width: 80, height: 80, borderRadius: "50%", background: "#f1f5f9", display: "grid", placeItems: "center", color: "#64748b", fontSize: 32 }}>📦</div>
-            <h3 style={{ margin: 0 }}>No products yet</h3>
-            <p style={{ color: "var(--muted)", margin: 0, maxWidth: 320 }}>Start by listing your first product on the marketplace.</p>
-            <button className="btn-add-product" onClick={openCreate}>
-              <Plus size={18} /> Add Product
-            </button>
-          </div>
-        ) : (
-          <div className="card product-like-table" style={{ background: "white", marginTop: 24 }}>
-            <div className="product-like-table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Product Info</th>
-                    <th>Category</th>
-                    <th>Price</th>
-                    <th>Stock Level</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {products.map((product) => {
-                    const img = getImageUrl(product);
-                    const stock = Number(product.stock || 0);
-                    const stockPercentage = Math.min(100, (stock / 100) * 100);
-                    const isLow = stock <= 5;
-                    const isOut = stock === 0;
-
-                    return (
-                      <tr key={product.id}>
-                        <td>
-                          <div className="product-name-cell">
-                            {img ? (
-                              <img src={img} alt={product.name} />
-                            ) : (
-                              <div className="product-empty-icon">📦</div>
-                            )}
-                            <div>
-                              <strong>{product.name}</strong>
-                              <span>SKU: PROD-{product.id}</span>
-                            </div>
-                          </div>
-                        </td>
-                        <td>
-                          <span style={{ fontSize: 13, fontWeight: "bold" }}>
-                            {product.category?.name || "General"}
-                          </span>
-                        </td>
-                        <td>
-                          <strong style={{ fontSize: 15, color: "var(--primary)" }}>{money(product.price)}</strong>
-                        </td>
-                        <td>
-                          <div className="inventory-cell">
-                            <div className={`inventory-bar ${isLow ? "low" : ""}`}>
-                              <i style={{ width: `${stockPercentage}%` }} />
-                            </div>
-                            <b>{stock}</b>
-                          </div>
-                        </td>
-                        <td>
-                          {isOut ? (
-                            <span className="status out-of-stock">Out of Stock</span>
-                          ) : isLow ? (
-                            <span className="status low-stock">Low Stock</span>
-                          ) : (
-                            <span className="status published">Active</span>
-                          )}
-                        </td>
-                        <td>
-                          <div className="row-icon-actions">
-                            <button title="Edit" onClick={() => openEdit(product)}>
-                              <Pencil size={16} />
-                            </button>
-                            <button title="Delete" onClick={() => handleDelete(product.id)} style={{ color: "var(--danger)" }}>
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+      {viewMode === "list" ? (
+        <>
+          {/* Top Bar */}
+          <div className="merchant-topbar">
+            <div className="product-like-topbar">
+              <h1>Product Catalog</h1>
+            </div>
+            <div className="product-like-actions">
+              <button className="btn-add-product" onClick={openCreate}>
+                <Plus size={18} /> Add Product
+              </button>
             </div>
           </div>
-        )}
 
-        {/* Create / Edit Modal */}
-        {showModal && (
-          <div className="modal-backdrop" onClick={() => setShowModal(false)}>
-            <div className="edit-user-modal wide-modal" onClick={(e) => e.stopPropagation()}>
-              <div className="modal-header">
-                <div>
-                  <h2>{editing ? "Modify Listing" : "Add New Product"}</h2>
-                  <p>{editing ? "Edit product specifications below." : "Fill out details to list a new item."}</p>
-                </div>
-                <button onClick={() => setShowModal(false)}><X size={18} /></button>
+          <div className="merchant-content">
+            <div className="merchant-title-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+              <div>
+                <h1>My Products</h1>
+                <p>Manage and optimize your store listings.</p>
               </div>
+              <span style={{ color: "var(--muted)", fontWeight: "bold" }}>Total: {products.length} products</span>
+            </div>
 
-              <form onSubmit={handleSubmit} className="stitch-form" style={{ display: "grid", gap: 14 }}>
-                {/* AI Assist Trigger Banner */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#f5f3ff", padding: "10px 14px", borderRadius: 12, border: "1px dashed #7c3aed" }}>
-                  <span style={{ fontSize: 13, fontWeight: "600", color: "#5b21b6" }}>Want to save time? Generate details with AI.</span>
-                  <button type="button" className="btn-ai-assist" onClick={() => setShowAiAssist(true)}>
-                    <Sparkles size={14} /> AI Assist
-                  </button>
+            {error && <div className="alert alert-error">{error}</div>}
+
+            {loading ? (
+              <div className="seller-loading">Loading products...</div>
+            ) : products.length === 0 ? (
+              <div className="card" style={{ padding: "80px 20px", textAlign: "center", background: "white", display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
+                <div style={{ width: 80, height: 80, borderRadius: "50%", background: "#f1f5f9", display: "grid", placeItems: "center", color: "#64748b", fontSize: 32 }}>📦</div>
+                <h3 style={{ margin: 0 }}>No products yet</h3>
+                <p style={{ color: "var(--muted)", margin: 0, maxWidth: 320 }}>Start by listing your first product on the marketplace.</p>
+                <button className="btn-add-product" onClick={openCreate}>
+                  <Plus size={18} /> Add Product
+                </button>
+              </div>
+            ) : (
+              <div className="card product-like-table" style={{ background: "white", marginTop: 24 }}>
+                <div className="product-like-table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Product Info</th>
+                        <th>Category</th>
+                        <th>Price</th>
+                        <th>Stock Level</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {products.map((product) => {
+                        const img = getImageUrl(product);
+                        const stock = Number(product.stock || 0);
+                        const stockPercentage = Math.min(100, (stock / 100) * 100);
+                        const isLow = stock <= 5;
+                        const isOut = stock === 0;
+
+                        return (
+                          <tr key={product.id}>
+                            <td>
+                              <div className="product-name-cell">
+                                {img ? (
+                                  <img src={img} alt={product.name} />
+                                ) : (
+                                  <div className="product-empty-icon">📦</div>
+                                )}
+                                <div>
+                                  <strong>{product.name}</strong>
+                                  <span>SKU: PROD-{product.id}</span>
+                                </div>
+                              </div>
+                            </td>
+                            <td>
+                              <span style={{ fontSize: 13, fontWeight: "bold" }}>
+                                {product.category?.name || "General"}
+                              </span>
+                            </td>
+                            <td>
+                              <strong style={{ fontSize: 15, color: "var(--primary)" }}>{money(product.price)}</strong>
+                            </td>
+                            <td>
+                              <div className="inventory-cell">
+                                <div className={`inventory-bar ${isLow ? "low" : ""}`}>
+                                  <i style={{ width: `${stockPercentage}%` }} />
+                                </div>
+                                <b>{stock}</b>
+                              </div>
+                            </td>
+                            <td>
+                              {isOut ? (
+                                <span className="status out-of-stock">Out of Stock</span>
+                              ) : isLow ? (
+                                <span className="status low-stock">Low Stock</span>
+                              ) : (
+                                <span className="status published">Active</span>
+                              )}
+                            </td>
+                            <td>
+                              <div className="row-icon-actions">
+                                <button title="Edit" onClick={() => openEdit(product)}>
+                                  <Pencil size={16} />
+                                </button>
+                                <button title="Delete" onClick={() => handleDelete(product.id)} style={{ color: "var(--danger)" }}>
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        </>
+      ) : (
+        /* Redesigned Full Page Add / Edit View */
+        <div className="merchant-content add-product-page-view" style={{ maxWidth: 840, margin: "0 auto", padding: "24px 22px" }}>
+          <div className="back-btn-row">
+            <button type="button" className="back-btn" onClick={() => setViewMode("list")}>
+              ← Back to Products
+            </button>
+          </div>
+
+          <div className="page-title-row">
+            <h1>{editing ? "Modify Product" : "Add New Product"}</h1>
+            <p>{editing ? "Edit product specifications below." : "Create a new product listing"}</p>
+          </div>
+
+          {error && <div className="alert alert-error" style={{ marginBottom: 20 }}>{error}</div>}
+
+          {/* AI Content Generator Card */}
+          <div className="ai-content-generator-card">
+            <div className="ai-content-generator-card-left">
+              <div className="ai-generator-title-row">
+                <h3><Sparkles size={18} style={{ color: "#4f46e5" }} /> AI Content Generator</h3>
+                <span className="new-tag">New</span>
+              </div>
+              <p>
+                Let AI help you create compelling product titles, descriptions, and SEO tags that convert browsers into buyers.
+              </p>
+            </div>
+            <button type="button" className="btn-generate-content" onClick={() => {
+              if (form.name) {
+                setAiPrompt(`Details for ${form.name}`);
+              }
+              setShowAiAssist(true);
+            }}>
+              Generate Content
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit}>
+            {/* Card 1: Basic Information */}
+            <div className="form-section-card">
+              <h3>Basic Information</h3>
+              <div style={{ display: "grid", gap: 16 }}>
+                <label>
+                  <span>Product Name *</span>
+                  <input
+                    name="name"
+                    value={form.name}
+                    onChange={handleChange}
+                    required
+                    placeholder="Enter product name"
+                  />
+                </label>
+
+                <div>
+                  <div className="label-with-ai-btn">
+                    <span style={{ fontWeight: 700, color: "#4b5563", fontSize: 14 }}>Description *</span>
+                    <button
+                      type="button"
+                      className="btn-ai-generate-field"
+                      onClick={() => {
+                        if (!form.name.trim()) {
+                          alert("Please enter a product name first to guide the description generation.");
+                          return;
+                        }
+                        setAiPrompt(`Provide details for: ${form.name}`);
+                        setShowAiAssist(true);
+                      }}
+                    >
+                      <Sparkles size={13} style={{ color: "#7c3aed" }} /> AI Generate
+                    </button>
+                  </div>
+                  <textarea
+                    name="description"
+                    value={form.description}
+                    onChange={handleChange}
+                    rows={5}
+                    placeholder="Describe your product..."
+                  />
                 </div>
 
-                <div className="create-product-grid" style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 16 }}>
-                  <label>
-                    <span>Product Name *</span>
-                    <input name="name" value={form.name} onChange={handleChange} required placeholder="e.g. ProSeries Earbuds" />
-                  </label>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                   <label>
                     <span>Category *</span>
                     <select name="category_id" value={form.category_id} onChange={handleChange} required>
@@ -327,31 +388,69 @@ export default function SellerProducts() {
                       ))}
                     </select>
                   </label>
-                </div>
 
-                <div className="create-product-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                   <label>
-                    <span>Price ($) *</span>
-                    <input type="number" step="0.01" name="price" value={form.price} onChange={handleChange} required placeholder="0.00" />
-                  </label>
-                  <label>
-                    <span>Stock *</span>
-                    <input type="number" name="stock" value={form.stock} onChange={handleChange} required placeholder="0" />
+                    <span>Tags</span>
+                    <input
+                      name="tags"
+                      value={form.tags}
+                      onChange={handleChange}
+                      placeholder="e.g., wireless, bluetooth, portable (comma-separated)"
+                    />
                   </label>
                 </div>
+              </div>
+            </div>
 
+            {/* Card 2: Pricing & Inventory */}
+            <div className="form-section-card">
+              <h3>Pricing & Inventory</h3>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                 <label>
-                  <span>Product Description</span>
-                  <textarea name="description" value={form.description} onChange={handleChange} rows={3} placeholder="Describe your product specs, features, and specs..." />
+                  <span>Price ($) *</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    name="price"
+                    value={form.price}
+                    onChange={handleChange}
+                    required
+                    placeholder="0.00"
+                  />
                 </label>
+                <label>
+                  <span>Stock *</span>
+                  <input
+                    type="number"
+                    name="stock"
+                    value={form.stock}
+                    onChange={handleChange}
+                    required
+                    placeholder="0"
+                  />
+                </label>
+              </div>
+            </div>
 
-                <div style={{ display: "grid", gap: 8 }}>
-                  <span style={{ fontSize: 13, fontWeight: "bold", color: "#64748b" }}>Image File Uploads</span>
-                  <input type="file" multiple accept="image/*" onChange={(e) => setFiles([...e.target.files])} style={{ padding: "8px 12px" }} />
+            {/* Card 3: Product Media */}
+            <div className="form-section-card">
+              <h3>Product Media</h3>
+              <div style={{ display: "grid", gap: 16 }}>
+                <div>
+                  <span style={{ display: "block", fontSize: 13, fontWeight: "bold", color: "#4b5563", marginBottom: 6 }}>
+                    Image File Uploads
+                  </span>
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    onChange={(e) => setFiles([...e.target.files])}
+                    style={{ padding: "8px 12px", border: "1px solid var(--border)", borderRadius: 10 }}
+                  />
                 </div>
 
                 <div style={{ display: "grid", gap: 8 }}>
-                  <span style={{ fontSize: 13, fontWeight: "bold", color: "#64748b" }}>External Image URLs</span>
+                  <span style={{ fontSize: 13, fontWeight: "bold", color: "#4b5563" }}>External Image URLs</span>
                   {form.image_urls.map((url, idx) => (
                     <div style={{ display: "flex", gap: 8 }} key={idx}>
                       <input
@@ -359,16 +458,28 @@ export default function SellerProducts() {
                         onChange={(e) => handleUrlChange(idx, e.target.value)}
                         placeholder="https://images.unsplash.com/..."
                       />
-                      <button type="button" className="btn btn-danger" style={{ minHeight: 44, padding: "0 12px", borderRadius: 10 }} onClick={() => removeUrlField(idx)}>
+                      <button
+                        type="button"
+                        className="btn btn-danger"
+                        style={{ minHeight: 44, padding: "0 12px", borderRadius: 10 }}
+                        onClick={() => removeUrlField(idx)}
+                      >
                         <X size={16} />
                       </button>
                     </div>
                   ))}
-                  <button type="button" className="btn btn-ghost" style={{ alignSelf: "start", minHeight: 36, padding: "0 14px", fontSize: 13 }} onClick={addUrlField}>+ Add Image URL</button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    style={{ alignSelf: "start", minHeight: 36, padding: "0 14px", fontSize: 13 }}
+                    onClick={addUrlField}
+                  >
+                    + Add Image URL
+                  </button>
                 </div>
 
                 {editing && (
-                  <label className="checkbox-line" style={{ cursor: "pointer" }}>
+                  <label className="checkbox-line" style={{ cursor: "pointer", marginTop: 8 }}>
                     <input
                       type="checkbox"
                       checked={form.replace_images}
@@ -377,86 +488,96 @@ export default function SellerProducts() {
                     <span>Replace all existing photos</span>
                   </label>
                 )}
-
-                <div className="modal-actions" style={{ marginTop: 12 }}>
-                  <button type="button" className="btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
-                  <button type="submit" className="btn-add-product" disabled={saving}>
-                    {saving ? "Saving Changes..." : editing ? "Save Product" : "Publish Product"}
-                  </button>
-                </div>
-              </form>
+              </div>
             </div>
-          </div>
-        )}
 
-        {/* AI Assistant Modal */}
-        {showAiAssist && (
-          <div className="modal-backdrop" style={{ zIndex: 1001 }} onClick={() => setShowAiAssist(false)}>
-            <div className="ai-assistant-modal" onClick={(e) => e.stopPropagation()}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                <h3 style={{ margin: 0, display: "flex", alignItems: "center", gap: 8, color: "#1e1b4b" }}>
-                  <Sparkles size={18} style={{ color: "#7c3aed" }} /> AI Product Generator
-                </h3>
-                <button type="button" onClick={() => setShowAiAssist(false)} style={{ background: "transparent", color: "var(--muted)" }}>
-                  <X size={18} />
+            {/* Action Buttons */}
+            <div className="form-actions-bar">
+              <button type="button" className="btn-cancel-form" onClick={() => setViewMode("list")}>
+                ✕ Cancel
+              </button>
+              <button type="submit" className="btn-save-form" disabled={saving}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 4 }}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                {saving ? "Saving Product..." : editing ? "Save Product" : "Create Product"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* AI Assistant Modal */}
+      {showAiAssist && (
+        <div className="modal-backdrop" style={{ zIndex: 1001 }} onClick={() => setShowAiAssist(false)}>
+          <div className="ai-assistant-modal" onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h3 style={{ margin: 0, display: "flex", alignItems: "center", gap: 8, color: "#1e1b4b" }}>
+                <Sparkles size={18} style={{ color: "#7c3aed" }} /> AI Product Generator
+              </h3>
+              <button type="button" onClick={() => setShowAiAssist(false)} style={{ background: "transparent", color: "var(--muted)" }}>
+                <X size={18} />
+              </button>
+            </div>
+            
+            <p style={{ fontSize: 13, color: "var(--muted)", margin: "0 0 14px 0" }}>
+              Describe your product (name, key traits, category) and the AI will draft optimized name, price, category, and description.
+            </p>
+
+            <textarea
+              rows={3}
+              placeholder="e.g. Ergonomic Office Chair, high back support, breathable mesh, adjustable armrests..."
+              value={aiPrompt}
+              onChange={(e) => setAiPrompt(e.target.value)}
+              style={{ width: "100%", marginBottom: 14, minHeight: 80 }}
+            />
+
+            <button
+              type="button"
+              className="btn-add-product"
+              style={{ width: "100%", height: 44, display: "grid", placeItems: "center" }}
+              onClick={generateAiContent}
+              disabled={generatingAi || !aiPrompt.trim()}
+            >
+              {generatingAi ? "Generating listing..." : "✨ Generate Details"}
+            </button>
+
+            {aiResult && (
+              <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 12, borderTop: "1px solid var(--border)", paddingTop: 16 }}>
+                <div className="ai-suggested-field">
+                  <strong style={{ display: "block", fontSize: 11, color: "#7c3aed", marginBottom: 2 }}>Suggested Title</strong>
+                  <span style={{ fontSize: 14, fontWeight: "600" }}>{aiResult.name}</span>
+                </div>
+                <div className="ai-suggested-field">
+                  <strong style={{ display: "block", fontSize: 11, color: "#7c3aed", marginBottom: 2 }}>Suggested Price</strong>
+                  <span style={{ fontSize: 14, fontWeight: "600" }}>${Number(aiResult.price || 0).toFixed(2)}</span>
+                </div>
+                <div className="ai-suggested-field">
+                  <strong style={{ display: "block", fontSize: 11, color: "#7c3aed", marginBottom: 2 }}>Recommended Category</strong>
+                  <span style={{ fontSize: 14, fontWeight: "600" }}>{aiResult.category_suggestion}</span>
+                </div>
+                {aiResult.tags && (
+                  <div className="ai-suggested-field">
+                    <strong style={{ display: "block", fontSize: 11, color: "#7c3aed", marginBottom: 2 }}>Suggested Tags</strong>
+                    <span style={{ fontSize: 14, fontWeight: "600" }}>{aiResult.tags}</span>
+                  </div>
+                )}
+                <div className="ai-suggested-field">
+                  <strong style={{ display: "block", fontSize: 11, color: "#7c3aed", marginBottom: 2 }}>Generated Description</strong>
+                  <div style={{ fontSize: 13, maxHeight: 120, overflowY: "auto", background: "white", padding: 8, borderRadius: 6, border: "1px solid var(--border)" }} dangerouslySetInnerHTML={{ __html: aiResult.description }} />
+                </div>
+
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  style={{ width: "100%", marginTop: 8 }}
+                  onClick={applyAiContent}
+                >
+                  Apply AI Suggestions
                 </button>
               </div>
-              
-              <p style={{ fontSize: 13, color: "var(--muted)", margin: "0 0 14px 0" }}>
-                Describe your product (name, key traits, category) and the AI will draft optimized name, price, category, and description.
-              </p>
-
-              <textarea
-                rows={3}
-                placeholder="e.g. Ergonomic Office Chair, high back support, breathable mesh, adjustable armrests..."
-                value={aiPrompt}
-                onChange={(e) => setAiPrompt(e.target.value)}
-                style={{ width: "100%", marginBottom: 14, minHeight: 80 }}
-              />
-
-              <button
-                type="button"
-                className="btn-add-product"
-                style={{ width: "100%", height: 44, display: "grid", placeItems: "center" }}
-                onClick={generateAiContent}
-                disabled={generatingAi || !aiPrompt.trim()}
-              >
-                {generatingAi ? "Generating listing..." : "✨ Generate Details"}
-              </button>
-
-              {aiResult && (
-                <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 12, borderTop: "1px solid var(--border)", paddingTop: 16 }}>
-                  <div className="ai-suggested-field">
-                    <strong style={{ display: "block", fontSize: 11, color: "#7c3aed", marginBottom: 2 }}>Suggested Title</strong>
-                    <span style={{ fontSize: 14, fontWeight: "600" }}>{aiResult.name}</span>
-                  </div>
-                  <div className="ai-suggested-field">
-                    <strong style={{ display: "block", fontSize: 11, color: "#7c3aed", marginBottom: 2 }}>Suggested Price</strong>
-                    <span style={{ fontSize: 14, fontWeight: "600" }}>${Number(aiResult.price || 0).toFixed(2)}</span>
-                  </div>
-                  <div className="ai-suggested-field">
-                    <strong style={{ display: "block", fontSize: 11, color: "#7c3aed", marginBottom: 2 }}>Recommended Category</strong>
-                    <span style={{ fontSize: 14, fontWeight: "600" }}>{aiResult.category_suggestion}</span>
-                  </div>
-                  <div className="ai-suggested-field">
-                    <strong style={{ display: "block", fontSize: 11, color: "#7c3aed", marginBottom: 2 }}>Generated Description</strong>
-                    <div style={{ fontSize: 13, maxHeight: 120, overflowY: "auto", background: "white", padding: 8, borderRadius: 6, border: "1px solid var(--border)" }} dangerouslySetInnerHTML={{ __html: aiResult.description }} />
-                  </div>
-
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    style={{ width: "100%", marginTop: 8 }}
-                    onClick={applyAiContent}
-                  >
-                    Apply AI Suggestions
-                  </button>
-                </div>
-              )}
-            </div>
+            )}
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
