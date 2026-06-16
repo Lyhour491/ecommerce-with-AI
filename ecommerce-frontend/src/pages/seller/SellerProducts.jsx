@@ -382,7 +382,7 @@ export default function SellerProducts() {
                   <label>
                     <span>Category *</span>
                     <select name="category_id" value={form.category_id} onChange={handleChange} required>
-                      <option value="">Select category</option>
+                      <option value="" disabled hidden>Select category</option>
                       {categories.map((c) => (
                         <option key={c.id} value={c.id}>{c.name}</option>
                       ))}

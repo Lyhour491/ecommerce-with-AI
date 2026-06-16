@@ -348,7 +348,7 @@ function AdminProducts() {
         <div className="modal-backdrop" role="dialog" aria-modal="true">
           <form className="edit-user-modal wide-modal" onSubmit={saveProduct} encType="multipart/form-data">
             <div className="modal-header"><div><h2>{editingProduct ? "Edit Product" : "Add Product"}</h2><p>{editingProduct ? "Update product details, stock, price, or images." : "Create a new product for your store."}</p></div><button type="button" onClick={() => setShowProductModal(false)} aria-label="Close"><X size={18} /></button></div>
-            <label>Category<select value={productForm.category_id} onChange={(e) => setProductForm({ ...productForm, category_id: e.target.value })} required><option value="">Select category</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
+            <label>Category<select value={productForm.category_id} onChange={(e) => setProductForm({ ...productForm, category_id: e.target.value })} required><option value="" disabled hidden>Select category</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
             <label>Name<input value={productForm.name} onChange={(e) => setProductForm({ ...productForm, name: e.target.value })} required placeholder="Product name" /></label>
             <label>Price<input type="number" step="0.01" min="0" value={productForm.price} onChange={(e) => setProductForm({ ...productForm, price: e.target.value })} required /></label>
             <label>Stock<input type="number" min="0" value={productForm.stock} onChange={(e) => setProductForm({ ...productForm, stock: e.target.value })} required /></label>

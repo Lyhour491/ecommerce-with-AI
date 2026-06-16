@@ -1,9 +1,10 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { 
   Clock, DollarSign, CheckCircle2, TrendingUp, Search, Calendar, 
   CreditCard, ShieldCheck, HelpCircle, Bell, Eye, Wallet, XCircle, X, Download
 } from "lucide-react";
 import { money } from "../../utils/store";
+import api from "../../api/axios";
 
 export default function AdminPayouts() {
   const [query, setQuery] = useState("");
@@ -12,73 +13,56 @@ export default function AdminPayouts() {
   const [viewPayout, setViewPayout] = useState(null);
   const [showBatchModal, setShowBatchModal] = useState(false);
   const [message, setMessage] = useState("");
-  const [admin] = useState({ name: "Admin" });
+  const [admin, setAdmin] = useState({ name: "Admin" });
+  const [payouts, setPayouts] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const [payouts, setPayouts] = useState([
-    {
-      id: "payout001",
-      sellerId: "seller1",
-      sellerName: "Premium Electronics Co.",
-      ownerName: "Michael Chen",
-      status: "processing",
-      period: "Dec 16 - Jan 15, 2026",
-      requestedDate: "Jan 8, 2026",
-      grossSales: 12450,
-      commission: 1245,
-      netPayout: 11205,
-      totalOrders: 89,
-      bankAccount: "****4567"
-    },
-    {
-      id: "payout002",
-      sellerId: "seller2",
-      sellerName: "Artisan Crafts Studio",
-      ownerName: "Sarah Jenkins",
-      status: "pending",
-      period: "Dec 16 - Jan 15, 2026",
-      requestedDate: "Jan 7, 2026",
-      grossSales: 9840,
-      commission: 984,
-      netPayout: 8856,
-      totalOrders: 65,
-      bankAccount: "****8901"
-    },
-    {
-      id: "payout003",
-      sellerId: "seller3",
-      sellerName: "FitGear Pro",
-      ownerName: "David Miller",
-      status: "completed",
-      period: "Nov 16 - Dec 15, 2025",
-      requestedDate: "Dec 8, 2025",
-      grossSales: 4151,
-      commission: 415,
-      netPayout: 3736,
-      totalOrders: 28,
-      bankAccount: "****2345"
+  const loadPayouts = async () => {
+    setLoading(true);
+    try {
+      const [payoutsRes, userRes] = await Promise.all([
+        api.get("/admin/payouts"),
+        api.get("/user").catch(() => null)
+      ]);
+      if (payoutsRes) setPayouts(payoutsRes.data || []);
+      if (userRes) setAdmin(userRes.data?.user || userRes.data || { name: "Admin" });
+    } catch (err) {
+      console.error("Failed to load admin payouts", err);
+    } finally {
+      setLoading(false);
     }
-  ]);
+  };
+
+  useEffect(() => {
+    loadPayouts();
+  }, []);
 
   // Handle processing a single payout
-  const handleProcessPayout = (payout) => {
-    setPayouts((prev) =>
-      prev.map((item) => (item.id === payout.id ? { ...item, status: "completed" } : item))
-    );
-    setMessage(`Successfully processed payout of ${money(payout.netPayout)} for ${payout.sellerName}!`);
-    setSelectedPayout(null);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+  const handleProcessPayout = async (payout) => {
+    try {
+      await api.post(`/admin/payouts/${payout.db_id}/process`);
+      setMessage(`Successfully processed payout of ${money(payout.netPayout)} for ${payout.sellerName}!`);
+      setSelectedPayout(null);
+      await loadPayouts();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (err) {
+      alert("Failed to process payout");
+    }
   };
 
   // Handle batch processing all pending payouts
-  const handleBatchProcess = () => {
-    const pending = payouts.filter((p) => p.status === "pending");
-    const totalAmount = pending.reduce((sum, p) => sum + p.netPayout, 0);
-    setPayouts((prev) =>
-      prev.map((item) => (item.status === "pending" ? { ...item, status: "completed" } : item))
-    );
-    setMessage(`Successfully processed all ${pending.length} pending payouts totaling ${money(totalAmount)}!`);
-    setShowBatchModal(false);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+  const handleBatchProcess = async () => {
+    try {
+      const pending = payouts.filter((p) => p.status === "pending");
+      const totalAmount = pending.reduce((sum, p) => sum + p.netPayout, 0);
+      await api.post("/admin/payouts/batch-process");
+      setMessage(`Successfully processed all ${pending.length} pending payouts totaling ${money(totalAmount)}!`);
+      setShowBatchModal(false);
+      await loadPayouts();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (err) {
+      alert("Failed to batch process payouts");
+    }
   };
 
   // Handle exporting payout receipt as PDF

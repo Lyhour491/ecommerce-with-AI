@@ -209,4 +209,50 @@ class AiController extends Controller
 
         return response()->json($aiResult);
     }
+
+    /**
+     * Generate AI financial insights for the authenticated seller
+     */
+    public function sellerInsights(Request $request)
+    {
+        $sellerId = $request->user()->id;
+
+        // Fetch seller products and order stats to create rich context
+        $products = Product::where('user_id', $sellerId)->get()->map(function ($p) {
+            return [
+                'name' => $p->name,
+                'price' => $p->price,
+                'stock' => $p->stock,
+            ];
+        })->toArray();
+
+        $revenue = \App\Models\OrderItem::whereIn('product_id', function ($query) use ($sellerId) {
+            $query->select('id')->from('products')->where('user_id', $sellerId);
+        })->sum(\Illuminate\Support\Facades\DB::raw('quantity * price'));
+
+        $prompt = "Seller Store Context:\n"
+            . "Products list: " . json_encode($products) . "\n"
+            . "Total Lifetime Revenue: $" . number_format($revenue, 2) . "\n\n"
+            . "Analyze the seller's store parameters and catalog listings. Generate exactly 3 key 'financial insights' detailing optimization recommendations (e.g. inventory restock recommendations, pricing strategies, or shipping improvement tips). For each insight specify: category, title, description, impact (concrete recommendation), color scheme (blue, green, orange), and projected financial metric.";
+
+        $systemInstruction = "You are a financial analyst AI for an e-commerce marketplace. Respond ONLY with valid JSON structure matching this schema:\n"
+            . "{\n"
+            . "  \"insights\": [\n"
+            . "    {\n"
+            . "      \"id\": 1,\n"
+            . "      \"title\": \"Insight Title\",\n"
+            . "      \"category\": \"Optimization Category\",\n"
+            . "      \"desc\": \"Detailed analysis description...\",\n"
+            . "      \"impact\": \"Actionable recommendation...\",\n"
+            . "      \"metric\": \"Potential Gain: +24%\",\n"
+            . "      \"color\": \"green\"\n"
+            . "    }\n"
+            . "  ]\n"
+            . "}\n"
+            . "Do not write any markdown outside of the JSON block.";
+
+        $aiResult = $this->geminiService->generateContent($prompt, $systemInstruction, true);
+
+        return response()->json($aiResult);
+    }
 }

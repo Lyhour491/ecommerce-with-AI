@@ -80,6 +80,11 @@ class User extends Authenticatable
         return $this->hasMany(Review::class);
     }
 
+    public function payouts()
+    {
+        return $this->hasMany(Payout::class);
+    }
+
     public function isAdmin()
     {
         return $this->role === 'admin';

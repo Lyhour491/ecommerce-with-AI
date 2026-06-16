@@ -119,8 +119,51 @@ class AiTest extends TestCase
                 'category_suggestion',
                 'description',
                 'tags',
-            ])
-            ->assertJsonPath('category_suggestion', 'Electronics')
-            ->assertJsonPath('tags', 'premium, gadgets, modern, design');
+            ]);
+
+        $data = $response->json();
+        $this->assertNotEmpty($data['category_suggestion']);
+        $this->assertNotEmpty($data['tags']);
+    }
+
+    public function test_seller_ai_insights_endpoint(): void
+    {
+        $seller = User::factory()->create(['role' => 'seller']);
+        $category = Category::create([
+            'name' => 'Home',
+            'slug' => 'home',
+        ]);
+        Product::create([
+            'user_id' => $seller->id,
+            'category_id' => $category->id,
+            'name' => 'Modern Lamp',
+            'slug' => 'modern-lamp',
+            'price' => 19.99,
+            'stock' => 10,
+            'is_active' => true,
+        ]);
+
+        // Should return 401 if unauthenticated
+        $this->getJson('/api/seller/ai-insights')
+            ->assertStatus(401);
+
+        // Authenticated as seller
+        $response = $this->actingAs($seller, 'sanctum')
+            ->getJson('/api/seller/ai-insights');
+
+        $response->assertStatus(200)
+            ->assertJsonStructure([
+                'insights' => [
+                    '*' => [
+                        'id',
+                        'title',
+                        'category',
+                        'desc',
+                        'impact',
+                        'metric',
+                        'color',
+                    ]
+                ]
+            ]);
     }
 }

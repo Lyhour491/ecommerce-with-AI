@@ -1,55 +1,69 @@
-import { useState } from "react";
-import { money } from "../../utils/store";
+import { useState, useEffect } from "react";
+import { money, firstApiError } from "../../utils/store";
 import { DollarSign, Send, CheckCircle, Clock, X } from "lucide-react";
+import api from "../../api/axios";
 
 export default function SellerPayouts() {
-  const [balance, setBalance] = useState(750.00);
+  const [balance, setBalance] = useState(0.00);
   const [showModal, setShowModal] = useState(false);
   const [payoutMethod, setPayoutMethod] = useState("bank");
-  const [amount, setAmount] = useState("750.00");
+  const [amount, setAmount] = useState("0.00");
   const [accountDetails, setAccountDetails] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
   const [loading, setLoading] = useState(false);
+  const [history, setHistory] = useState([]);
 
-  const [history, setHistory] = useState([
-    { id: 1, date: "2026-05-15", amount: 1250.00, method: "Bank Transfer", ref: "TXN-902831", status: "completed" },
-    { id: 2, date: "2026-04-15", amount: 840.50, method: "PayPal", ref: "TXN-382910", status: "completed" },
-    { id: 3, date: "2026-03-15", amount: 620.00, method: "Bank Transfer", ref: "TXN-108293", status: "completed" },
-  ]);
+  const loadPayouts = async () => {
+    try {
+      const res = await api.get("/seller/payouts");
+      setBalance(Number(res.data.balance || 0));
+      setAmount(Number(res.data.balance || 0).toFixed(2));
+      
+      const formattedHistory = (res.data.history || []).map(record => ({
+        id: record.id,
+        date: new Date(record.created_at).toISOString().split("T")[0],
+        amount: Number(record.amount),
+        method: record.method === "bank" ? "Bank Transfer" : "PayPal",
+        ref: record.reference_id,
+        status: record.status
+      }));
+      setHistory(formattedHistory);
+    } catch (err) {
+      console.error("Failed to load payouts data", err);
+    }
+  };
 
-  const handleSubmit = (e) => {
+  useEffect(() => {
+    loadPayouts();
+  }, []);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setSuccessMsg("");
+    setErrorMsg("");
     
-    setTimeout(() => {
-      const parsedAmount = parseFloat(amount) || 0;
-      if (parsedAmount <= 0 || parsedAmount > balance) {
-        alert("Invalid withdrawal amount.");
-        setLoading(false);
-        return;
-      }
+    try {
+      await api.post("/seller/payouts", {
+        amount: parseFloat(amount),
+        method: payoutMethod,
+        account_details: accountDetails
+      });
 
-      const newRecord = {
-        id: Date.now(),
-        date: new Date().toISOString().split("T")[0],
-        amount: parsedAmount,
-        method: payoutMethod === "bank" ? "Bank Transfer" : "PayPal",
-        ref: "TXN-" + Math.floor(100000 + Math.random() * 900000),
-        status: "pending",
-      };
-
-      setHistory([newRecord, ...history]);
-      setBalance(balance - parsedAmount);
       setSuccessMsg("Payout request submitted successfully!");
-      setLoading(false);
+      setAccountDetails("");
+      await loadPayouts();
       
-      // Auto close modal
       setTimeout(() => {
         setShowModal(false);
         setSuccessMsg("");
       }, 2000);
-    }, 1000);
+    } catch (err) {
+      setErrorMsg(firstApiError(err, "Failed to submit payout request."));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -147,6 +161,7 @@ export default function SellerPayouts() {
               </div>
 
               {successMsg && <div className="alert alert-success">{successMsg}</div>}
+              {errorMsg && <div className="alert alert-error">{errorMsg}</div>}
 
               <form onSubmit={handleSubmit} className="stitch-form">
                 <label>

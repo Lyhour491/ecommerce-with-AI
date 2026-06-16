@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\AiController;
 use App\Http\Controllers\Api\MessageController;
 use App\Http\Controllers\Api\WishlistController;
 use App\Http\Controllers\Api\ReviewController;
+use App\Http\Controllers\Api\PayoutController;
 
 
 Route::post('/register', [AuthController::class, 'register']);
@@ -64,6 +65,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/admin/seller-applications', [UserController::class, 'getSellerApplications']);
         Route::post('/admin/seller-applications/{user}/approve', [UserController::class, 'approveSeller']);
         Route::post('/admin/seller-applications/{user}/reject', [UserController::class, 'rejectSeller']);
+
+        Route::get('/admin/payouts', [PayoutController::class, 'adminIndex']);
+        Route::post('/admin/payouts/{id}/process', [PayoutController::class, 'adminProcess']);
+        Route::post('/admin/payouts/batch-process', [PayoutController::class, 'adminBatchProcess']);
     });
 
     // ── Seller routes ───────────────────────────────────────────────────
@@ -76,6 +81,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/products/{product}', [SellerProductController::class, 'destroy']);
         Route::get('/orders', [SellerProductController::class, 'orders']);
         Route::post('/ai/generate-product-content', [AiController::class, 'generateProductContent']);
+
+        Route::get('/payouts', [PayoutController::class, 'sellerIndex']);
+        Route::post('/payouts', [PayoutController::class, 'sellerStore']);
+        Route::get('/ai-insights', [AiController::class, 'sellerInsights']);
     });
 
 

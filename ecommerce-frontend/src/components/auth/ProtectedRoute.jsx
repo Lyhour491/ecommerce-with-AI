@@ -22,7 +22,7 @@ function ProtectedRoute({ adminOnly = false, sellerOnly = false }) {
 
         let allowed = true;
         if (adminOnly) allowed = isAdmin;
-        else if (sellerOnly) allowed = isSeller || isAdmin;
+        else if (sellerOnly) allowed = isSeller;
 
         return { loading: false, allowed };
       }
@@ -55,7 +55,7 @@ function ProtectedRoute({ adminOnly = false, sellerOnly = false }) {
 
         let allowed = true;
         if (adminOnly) allowed = isAdmin;
-        else if (sellerOnly) allowed = isSeller || isAdmin;
+        else if (sellerOnly) allowed = isSeller;
 
         setState({ loading: false, allowed });
       })
