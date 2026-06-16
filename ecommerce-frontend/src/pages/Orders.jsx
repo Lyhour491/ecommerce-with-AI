@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import api from "../api/axios";
 import { firstApiError, getImageUrl, money, unwrapList } from "../utils/store";
+import { useDocumentTitle } from "../utils/seo";
 import { 
   Package, Heart, TrendingUp, ShoppingCart, 
   Search, Settings, ArrowLeft, Store, ChevronRight,
@@ -10,6 +11,7 @@ import {
 } from "lucide-react";
 
 function Orders() {
+  useDocumentTitle("My Dashboard & Orders - Track Shipments", "View orders history, check delivery tracker statuses, download digital invoices, or contact sellers directly.");
   const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -17,6 +19,7 @@ function Orders() {
   const [activeTab, setActiveTab] = useState("all");
   const [view, setView] = useState("dashboard"); // "dashboard", "orders_list", or "order_details"
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [invoiceOrder, setInvoiceOrder] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [cartCount, setCartCount] = useState(0);
   const [recommendations, setRecommendations] = useState([]);
@@ -143,7 +146,7 @@ function Orders() {
   });
 
   const handleDownloadInvoice = (order) => {
-    window.print();
+    setInvoiceOrder(order);
   };
 
   const showOrderDetails = (order) => {
@@ -952,6 +955,201 @@ function Orders() {
             })}
           </div>
         </section>
+      )}
+
+      {/* Printable Invoice Modal Overlay */}
+      {invoiceOrder && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: "rgba(15, 23, 42, 0.6)",
+          backdropFilter: "blur(6px)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1000,
+          padding: 24,
+          overflowY: "auto"
+        }} className="no-print-overlay" onClick={() => setInvoiceOrder(null)}>
+          
+          <style>{`
+            @media print {
+              body * {
+                visibility: hidden;
+              }
+              .printable-invoice-modal-content, .printable-invoice-modal-content * {
+                visibility: visible;
+              }
+              .printable-invoice-modal-content {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                box-shadow: none !important;
+                border: none !important;
+                padding: 0 !important;
+                margin: 0 !important;
+              }
+              .no-print-overlay {
+                background: none !important;
+                backdrop-filter: none !important;
+                padding: 0 !important;
+              }
+              .invoice-actions-print {
+                display: none !important;
+              }
+            }
+          `}</style>
+
+          <div style={{
+            backgroundColor: "#ffffff",
+            borderRadius: 16,
+            width: "100%",
+            maxWidth: 680,
+            boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+            border: "1px solid #e2e8f0",
+            padding: 34,
+            position: "relative",
+            maxHeight: "90vh",
+            overflowY: "auto"
+          }} className="printable-invoice-modal-content" onClick={(e) => e.stopPropagation()}>
+            
+            {/* Top action row */}
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginBottom: 28 }} className="invoice-actions-print">
+              <button 
+                onClick={() => window.print()}
+                className="btn btn-primary"
+                style={{ padding: "8px 16px", borderRadius: 8, display: "flex", alignItems: "center", gap: 8 }}
+              >
+                <span>Print Invoice</span>
+              </button>
+              <button 
+                onClick={() => setInvoiceOrder(null)}
+                className="btn btn-ghost"
+                style={{ padding: "8px 16px", borderRadius: 8 }}
+              >
+                Close
+              </button>
+            </div>
+
+            {/* Invoice Header */}
+            <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "2px solid #e2e8f0", paddingBottom: 20, marginBottom: 24 }}>
+              <div>
+                <h2 style={{ margin: 0, color: "var(--primary)", fontWeight: 900, letterSpacing: "-0.5px" }}>MarketAI Store</h2>
+                <p style={{ margin: "4px 0 0", color: "var(--muted)", fontSize: 13, lineHeight: 1.4 }}>
+                  123 Innovation Blvd, Suite 400<br />
+                  Phnom Penh, Cambodia<br />
+                  support@marketai.com
+                </p>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <h1 style={{ margin: 0, fontSize: 24, color: "#0f172a", fontWeight: 800 }}>INVOICE</h1>
+                <p style={{ margin: "4px 0 0", color: "#64748b", fontSize: 13 }}>
+                  Invoice No: <strong>INV-2026-{String(invoiceOrder.id).padStart(3, "0")}</strong><br />
+                  Date: {invoiceOrder.created_at ? new Date(invoiceOrder.created_at).toLocaleDateString() : "N/A"}<br />
+                  Status: <span style={{ textTransform: "uppercase", fontWeight: 700, color: invoiceOrder.status === 'delivered' ? '#059669' : '#d97706' }}>{invoiceOrder.status}</span>
+                </p>
+              </div>
+            </div>
+
+            {/* Invoice Info Fields */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginBottom: 28 }}>
+              <div>
+                <h4 style={{ margin: "0 0 6px 0", color: "#64748b", fontSize: 11, textTransform: "uppercase", letterSpacing: "1px" }}>Bill To:</h4>
+                <strong style={{ fontSize: 15, color: "#0f172a" }}>{invoiceOrder.user?.name || "Customer Name"}</strong>
+                <p style={{ margin: "4px 0 0", color: "var(--muted)", fontSize: 13, lineHeight: 1.4 }}>
+                  Email: {invoiceOrder.user?.email || "customer@example.com"}<br />
+                  Phone: {invoiceOrder.phone || "N/A"}
+                </p>
+              </div>
+              <div>
+                <h4 style={{ margin: "0 0 6px 0", color: "#64748b", fontSize: 11, textTransform: "uppercase", letterSpacing: "1px" }}>Ship To:</h4>
+                <p style={{ margin: 0, color: "var(--muted)", fontSize: 13, lineHeight: 1.4 }}>
+                  {invoiceOrder.shipping_address || "Shipping Destination Address"}
+                </p>
+              </div>
+            </div>
+
+            {/* Line Items Table */}
+            <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 24 }}>
+              <thead>
+                <tr style={{ background: "#f8fafc", borderBottom: "1px solid #cbd5e1" }}>
+                  <th style={{ padding: "12px 14px", textAlign: "left", fontSize: 12, color: "#475569" }}>Product Description</th>
+                  <th style={{ padding: "12px 14px", textAlign: "center", fontSize: 12, color: "#475569", width: 80 }}>Qty</th>
+                  <th style={{ padding: "12px 14px", textAlign: "right", fontSize: 12, color: "#475569", width: 100 }}>Unit Price</th>
+                  <th style={{ padding: "12px 14px", textAlign: "right", fontSize: 12, color: "#475569", width: 120 }}>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(invoiceOrder.items || invoiceOrder.order_items || []).map((item) => {
+                  const product = item.product || {};
+                  return (
+                    <tr key={item.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                      <td style={{ padding: "14px", fontSize: 14, color: "#0f172a", fontWeight: 700 }}>
+                        {product.name || "Product Name"}
+                      </td>
+                      <td style={{ padding: "14px", fontSize: 14, color: "#475569", textAlign: "center" }}>
+                        {item.quantity}
+                      </td>
+                      <td style={{ padding: "14px", fontSize: 14, color: "#475569", textAlign: "right" }}>
+                        {money(item.price || product.price)}
+                      </td>
+                      <td style={{ padding: "14px", fontSize: 14, color: "#0f172a", textAlign: "right", fontWeight: 700 }}>
+                        {money(Number(item.price || product.price) * Number(item.quantity))}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+
+            {/* Cost Breakdown & Barcode visual */}
+            <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 32, alignItems: "flex-end", paddingTop: 12 }}>
+              {/* Barcode visual using CSS gradients */}
+              <div style={{ textAlign: "center" }}>
+                <div style={{
+                  height: 44,
+                  width: "100%",
+                  maxWidth: 240,
+                  margin: "0 auto 6px",
+                  background: "repeating-linear-gradient(90deg, #000, #000 2px, #fff 2px, #fff 8px, #000 8px, #000 12px, #fff 12px, #fff 14px, #000 14px, #000 18px)"
+                }} />
+                <span style={{ fontSize: 10, letterSpacing: 3, fontFamily: "monospace", color: "#64748b" }}>
+                  *INV-{invoiceOrder.id}-{invoiceOrder.payment_reference || "REF"}*
+                </span>
+              </div>
+
+              {/* Total calculations block */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 14 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", color: "#475569" }}>
+                  <span>Subtotal</span>
+                  <span>{money(Number(invoiceOrder.total_price || invoiceOrder.total) - Number(invoiceOrder.tax || 0) - Number(invoiceOrder.shipping_fee || 0))}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", color: "#475569" }}>
+                  <span>Tax (8%)</span>
+                  <span>{money(invoiceOrder.tax || 0)}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", color: "#475569" }}>
+                  <span>Shipping</span>
+                  <span>{invoiceOrder.shipping_fee ? money(invoiceOrder.shipping_fee) : "Free"}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", borderTop: "2px solid #cbd5e1", paddingTop: 8, fontSize: 16, fontWeight: 800, color: "#0f172a" }}>
+                  <span>Grand Total</span>
+                  <span>{money(invoiceOrder.total_price || invoiceOrder.total)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer Note */}
+            <div style={{ borderTop: "1px solid #e2e8f0", marginTop: 34, paddingTop: 16, textAlign: "center", color: "#94a3b8", fontSize: 11 }}>
+              Thank you for your business! If you have any questions about this invoice, please contact support@marketai.com.
+            </div>
+
+          </div>
+        </div>
       )}
     </main>
   );

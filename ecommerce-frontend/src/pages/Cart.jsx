@@ -2,9 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../api/axios";
 import { firstApiError, getImageUrl, money, unwrapList } from "../utils/store";
+import { useDocumentTitle } from "../utils/seo";
 
 function Cart() {
   const navigate = useNavigate();
+  useDocumentTitle("Shopping Cart - Review Items", "View your selected premium gear, update quantities, check totals, and proceed to checkout securely.");
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");

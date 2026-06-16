@@ -12,6 +12,8 @@ use App\Http\Controllers\Api\ProductImageController;
 use App\Http\Controllers\Api\SellerProductController;
 use App\Http\Controllers\Api\AiController;
 use App\Http\Controllers\Api\MessageController;
+use App\Http\Controllers\Api\WishlistController;
+use App\Http\Controllers\Api\ReviewController;
 
 
 Route::post('/register', [AuthController::class, 'register']);
@@ -27,6 +29,7 @@ Route::get('/categories/{category}', [CategoryController::class, 'show']);
 Route::get('/products', [ProductController::class, 'index']);
 Route::get('/top-products', [ProductController::class, 'topProducts']);
 Route::get('/products/{product}', [ProductController::class, 'show']);
+Route::get('/products/{product}/reviews', [ReviewController::class, 'index']);
 
 Route::post('/ai/chat', [AiController::class, 'chat']);
 Route::get('/ai/recommend-products', [AiController::class, 'recommendProducts']);
@@ -82,6 +85,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/cart/{cart}', [CartController::class, 'update']);
     Route::delete('/cart/{cart}', [CartController::class, 'destroy']);
     Route::delete('/cart-clear', [CartController::class, 'clear']);
+
+    Route::get('/wishlist', [WishlistController::class, 'index']);
+    Route::post('/wishlist', [WishlistController::class, 'store']);
+    Route::delete('/wishlist/{productId}', [WishlistController::class, 'destroy']);
+
+    Route::post('/products/{product}/reviews', [ReviewController::class, 'store']);
 
     Route::post('/checkout', [OrderController::class, 'checkout']);
     Route::get('/orders', [OrderController::class, 'index']);

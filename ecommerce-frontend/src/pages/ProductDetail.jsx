@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import api from "../api/axios";
 import { firstApiError, getImageUrl, getProductImages, money, unwrapList } from "../utils/store";
+import { useDocumentTitle } from "../utils/seo";
 
 const productCategory = (product) => product?.category?.name || product?.category_name || product?.category || "General";
 const productImages = (product) => getProductImages(product);
@@ -10,6 +11,7 @@ function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [product, setProduct] = useState(null);
+  useDocumentTitle(product ? `${product.name} - Buy Online` : "Loading Product...", product ? product.description : "View detailed features, descriptions, ratings and user feedback.");
   const [products, setProducts] = useState([]);
   const [activeImage, setActiveImage] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -20,33 +22,84 @@ function ProductDetail() {
   const [aiRecommendations, setAiRecommendations] = useState([]);
   const [loadingAiRec, setLoadingAiRec] = useState(false);
 
+  // Reviews states
+  const [reviews, setReviews] = useState([]);
+  const [newReviewRating, setNewReviewRating] = useState(5);
+  const [newReviewComment, setNewReviewComment] = useState("");
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [reviewError, setReviewError] = useState("");
+  const [reviewSuccess, setReviewSuccess] = useState("");
 
-  useEffect(() => {
-    try {
-      const stored = JSON.parse(localStorage.getItem("wishlist") || "[]");
-      setWishlist(stored);
-    } catch {
-      setWishlist([]);
+  const loadWishlist = async () => {
+    const hasToken = !!localStorage.getItem("token");
+    if (hasToken) {
+      try {
+        const res = await api.get("/wishlist");
+        setWishlist(res.data.map(p => p.id));
+      } catch (err) {
+        console.error("Failed to load wishlist in product detail", err);
+      }
+    } else {
+      try {
+        const stored = JSON.parse(localStorage.getItem("wishlist") || "[]");
+        setWishlist(stored);
+      } catch {
+        setWishlist([]);
+      }
     }
-  }, []);
-
-  const toggleWishlist = () => {
-    if (!product) return;
-    const nextIds = wishlist.includes(product.id)
-      ? wishlist.filter((item) => item !== product.id)
-      : [...wishlist, product.id];
-    setWishlist(nextIds);
-    localStorage.setItem("wishlist", JSON.stringify(nextIds));
   };
 
-  const toggleWishlistId = (e, targetId) => {
+  useEffect(() => {
+    loadWishlist();
+  }, []);
+
+  const toggleWishlist = async () => {
+    if (!product) return;
+    const hasToken = !!localStorage.getItem("token");
+    if (hasToken) {
+      try {
+        const res = await api.post("/wishlist", { product_id: product.id });
+        const { in_wishlist } = res.data;
+        if (in_wishlist) {
+          setWishlist(prev => [...prev, product.id]);
+        } else {
+          setWishlist(prev => prev.filter(item => item !== product.id));
+        }
+      } catch (err) {
+        console.error("Failed to toggle DB wishlist:", err);
+      }
+    } else {
+      const nextIds = wishlist.includes(product.id)
+        ? wishlist.filter((item) => item !== product.id)
+        : [...wishlist, product.id];
+      setWishlist(nextIds);
+      localStorage.setItem("wishlist", JSON.stringify(nextIds));
+    }
+  };
+
+  const toggleWishlistId = async (e, targetId) => {
     e.preventDefault();
     e.stopPropagation();
-    const nextIds = wishlist.includes(targetId)
-      ? wishlist.filter((item) => item !== targetId)
-      : [...wishlist, targetId];
-    setWishlist(nextIds);
-    localStorage.setItem("wishlist", JSON.stringify(nextIds));
+    const hasToken = !!localStorage.getItem("token");
+    if (hasToken) {
+      try {
+        const res = await api.post("/wishlist", { product_id: targetId });
+        const { in_wishlist } = res.data;
+        if (in_wishlist) {
+          setWishlist(prev => [...prev, targetId]);
+        } else {
+          setWishlist(prev => prev.filter(item => item !== targetId));
+        }
+      } catch (err) {
+        console.error("Failed to toggle DB wishlist:", err);
+      }
+    } else {
+      const nextIds = wishlist.includes(targetId)
+        ? wishlist.filter((item) => item !== targetId)
+        : [...wishlist, targetId];
+      setWishlist(nextIds);
+      localStorage.setItem("wishlist", JSON.stringify(nextIds));
+    }
   };
 
   useEffect(() => {
@@ -54,7 +107,9 @@ function ProductDetail() {
     Promise.allSettled([api.get(`/products/${id}`), api.get("/products")])
       .then(([detailRes, listRes]) => {
         if (detailRes.status === "fulfilled") {
-          setProduct(detailRes.value.data.data || detailRes.value.data.product || detailRes.value.data);
+          const prodData = detailRes.value.data.data || detailRes.value.data.product || detailRes.value.data;
+          setProduct(prodData);
+          setReviews(prodData.reviews || []);
         } else {
           setError("Product not found.");
         }
@@ -99,6 +154,26 @@ function ProductDetail() {
     }
   };
 
+  const handleReviewSubmit = async (e) => {
+    e.preventDefault();
+    setReviewError("");
+    setReviewSuccess("");
+    setSubmittingReview(true);
+    try {
+      const res = await api.post(`/products/${product.id}/reviews`, {
+        rating: newReviewRating,
+        comment: newReviewComment,
+      });
+      setReviewSuccess("Review submitted successfully!");
+      setNewReviewComment("");
+      setReviews(prev => [res.data.review, ...prev]);
+    } catch (err) {
+      setReviewError(firstApiError(err, "Failed to submit review."));
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
   if (loading) {
     return (
       <main className="proshop-page detail-page">
@@ -131,6 +206,27 @@ function ProductDetail() {
 
   const stock = Number(product.stock || 0);
   const oldPrice = Number(product.old_price || product.compare_at_price || product.price * 1.15);
+  const averageRating = Number(product.average_rating || 0);
+
+  const renderStars = (rating) => {
+    const rounded = Math.round(rating);
+    return "★".repeat(rounded) + "☆".repeat(5 - rounded);
+  };
+
+  const ratingBreakdown = {
+    5: 0, 4: 0, 3: 0, 2: 0, 1: 0,
+    counts: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 }
+  };
+  
+  if (reviews.length > 0) {
+    reviews.forEach(r => {
+      const rVal = Math.min(5, Math.max(1, Math.round(r.rating)));
+      ratingBreakdown.counts[rVal] = (ratingBreakdown.counts[rVal] || 0) + 1;
+    });
+    [5, 4, 3, 2, 1].forEach(stars => {
+      ratingBreakdown[stars] = Math.round((ratingBreakdown.counts[stars] / reviews.length) * 100);
+    });
+  }
 
   return (
     <main className="proshop-page detail-page">
@@ -159,7 +255,10 @@ function ProductDetail() {
           <aside className="detail-info-card">
             <span className="best-seller">Best Seller</span>
             <h1>{product.name}</h1>
-            <div className="stars">★★★★★ <span>4.8 (128 Reviews)</span></div>
+            <div className="stars">
+              <span style={{ color: "#fbbf24", marginRight: 6 }}>{renderStars(averageRating)}</span>
+              <span>{averageRating.toFixed(1)} ({reviews.length} {reviews.length === 1 ? 'Review' : 'Reviews'})</span>
+            </div>
             <div className="detail-price"><strong>{money(product.price)}</strong><span>{money(oldPrice)}</span></div>
             <p className="saving">Save {money(Math.max(0, oldPrice - Number(product.price || 0)))} ({stock > 0 ? "In stock" : "Out of stock"})</p>
             <div className="color-dots"><button></button><button></button><button></button></div>
@@ -181,6 +280,144 @@ function ProductDetail() {
           </section>
           <section className="charge-card"><h2>⚡</h2><h3>Quick Delivery</h3><p>Fast order processing with trusted store fulfillment.</p><button>Learn More</button></section>
         </div>
+
+        {/* Reviews & Ratings Section */}
+        <section className="reviews-section" style={{ marginTop: 48, paddingTop: 40, borderTop: "1px solid var(--border)" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 32, marginBottom: 40 }}>
+            
+            {/* Ratings Breakdown Summary */}
+            <div style={{ background: "white", padding: 28, borderRadius: 16, border: "1px solid var(--border)", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.05)" }}>
+              <h3 style={{ margin: "0 0 16px 0", fontSize: 18, fontWeight: 800 }}>Customer Reviews</h3>
+              <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
+                <h1 style={{ fontSize: 56, margin: 0, fontWeight: 900, lineHeight: 1 }}>{averageRating.toFixed(1)}</h1>
+                <div>
+                  <div style={{ color: "#fbbf24", fontSize: 22, lineHeight: 1 }}>{renderStars(averageRating)}</div>
+                  <small style={{ color: "var(--muted)", display: "block", marginTop: 4, fontSize: 13 }}>Based on {reviews.length} reviews</small>
+                </div>
+              </div>
+
+              {/* Breakdown progress bars */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {[5, 4, 3, 2, 1].map((stars) => {
+                  const pct = ratingBreakdown[stars];
+                  return (
+                    <div key={stars} style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 13 }}>
+                      <span style={{ width: 14, fontWeight: 700 }}>{stars}</span>
+                      <span style={{ color: "#fbbf24" }}>★</span>
+                      <div style={{ flex: 1, height: 8, background: "#f1f5f9", borderRadius: 4, overflow: "hidden" }}>
+                        <div style={{ width: `${pct}%`, height: "100%", background: "#fbbf24", borderRadius: 4 }} />
+                      </div>
+                      <span style={{ width: 30, textAlign: "right", color: "var(--muted)", fontWeight: 600 }}>{pct}%</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Write a Review Form */}
+            <div style={{ background: "white", padding: 28, borderRadius: 16, border: "1px solid var(--border)", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.05)" }}>
+              <h3 style={{ margin: "0 0 16px 0", fontSize: 18, fontWeight: 800 }}>Write a Review</h3>
+              {localStorage.getItem("token") ? (
+                <form onSubmit={handleReviewSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                  {reviewSuccess && <div className="alert alert-success">{reviewSuccess}</div>}
+                  {reviewError && <div className="alert alert-error">{reviewError}</div>}
+                  
+                  <div>
+                    <label style={{ display: "block", marginBottom: 6, fontWeight: 750, fontSize: 13, color: "var(--text)" }}>Rating</label>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          type="button"
+                          key={star}
+                          onClick={() => setNewReviewRating(star)}
+                          style={{
+                            background: "none", border: "none", fontSize: 28, cursor: "pointer",
+                            color: star <= newReviewRating ? "#fbbf24" : "#e2e8f0",
+                            padding: 0, transition: "transform 0.1s"
+                          }}
+                          onMouseEnter={(e) => e.target.style.transform = "scale(1.15)"}
+                          onMouseLeave={(e) => e.target.style.transform = "scale(1)"}
+                        >
+                          ★
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label htmlFor="review-feedback" style={{ display: "block", marginBottom: 6, fontWeight: 750, fontSize: 13, color: "var(--text)" }}>Feedback</label>
+                    <textarea
+                      id="review-feedback"
+                      value={newReviewComment}
+                      onChange={(e) => setNewReviewComment(e.target.value)}
+                      placeholder="Share your thoughts on this product..."
+                      required
+                      rows={3}
+                      style={{
+                        width: "100%", padding: 12, borderRadius: 10, border: "1px solid var(--border)",
+                        fontSize: 14, fontFamily: "inherit", resize: "vertical", outline: "none",
+                        transition: "border-color 0.15s"
+                      }}
+                      onFocus={(e) => e.target.style.borderColor = "var(--primary)"}
+                      onBlur={(e) => e.target.style.borderColor = "var(--border)"}
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={submittingReview}
+                    style={{ alignSelf: "flex-start", marginTop: 4 }}
+                  >
+                    {submittingReview ? "Submitting..." : "Submit Review"}
+                  </button>
+                </form>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "80%", textAlign: "center", padding: "20px 0" }}>
+                  <p style={{ color: "var(--muted)", marginBottom: 16, fontSize: 14 }}>Please log in to share your thoughts and review this product.</p>
+                  <Link to="/login" className="btn btn-primary">Log In</Link>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Review List */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <h3 style={{ margin: "0 0 8px 0", fontSize: 18, fontWeight: 800 }}>Reviews ({reviews.length})</h3>
+            {reviews.length === 0 ? (
+              <div style={{ background: "white", padding: "48px 24px", borderRadius: 16, border: "1px solid var(--border)", textAlign: "center" }}>
+                <p style={{ margin: 0, color: "var(--muted)", fontSize: 14 }}>No reviews yet. Be the first to share your thoughts!</p>
+              </div>
+            ) : (
+              reviews.map((rev) => (
+                <div key={rev.id} style={{ background: "white", padding: 24, borderRadius: 16, border: "1px solid var(--border)", boxShadow: "0 2px 4px rgb(0 0 0 / 0.02)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                        <strong style={{ fontSize: 15, color: "var(--text)" }}>{rev.user?.name || "Customer"}</strong>
+                        {rev.verified_purchase && (
+                          <span style={{
+                            fontSize: 11, background: "#ecfdf5", color: "#059669",
+                            padding: "2px 8px", borderRadius: 12, fontWeight: 800
+                          }}>
+                            ✓ Verified Purchase
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ color: "#fbbf24", fontSize: 14, marginTop: 4 }}>
+                        {renderStars(rev.rating)}
+                      </div>
+                    </div>
+                    <small style={{ color: "var(--muted)", fontSize: 12, fontWeight: 500 }}>
+                      {new Date(rev.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                    </small>
+                  </div>
+                  <p style={{ margin: 0, color: "var(--text)", fontSize: 14.5, lineHeight: "1.6", whiteSpace: "pre-line" }}>{rev.comment}</p>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
 
         {/* AI Smart Recommendations */}
         {aiRecommendations.length > 0 && (

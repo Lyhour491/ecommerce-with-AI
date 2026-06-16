@@ -2,11 +2,23 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../api/axios";
 import { firstApiError, getImageUrl, money, unwrapList } from "../utils/store";
+import { useDocumentTitle } from "../utils/seo";
 
 function Checkout() {
   const navigate = useNavigate();
+  useDocumentTitle("Checkout - Secure Payment", "Finalize your order. Input shipping details, choose standard or express shipping, and complete payment securely via our test card gateway.");
   const [step, setStep] = useState(1);
   const [cartItems, setCartItems] = useState([]);
+  const [isCardFlipped, setIsCardFlipped] = useState(false);
+
+  const getCardBrand = (number) => {
+    const clean = (number || "").replace(/\D/g, "");
+    if (clean.startsWith("4")) return "visa";
+    if (/^5[1-5]/.test(clean) || /^2[2-7]/.test(clean)) return "mastercard";
+    if (/^3[47]/.test(clean)) return "amex";
+    if (/^6(?:011|5)/.test(clean)) return "discover";
+    return "generic";
+  };
   const [form, setForm] = useState({
     first_name: "",
     last_name: "",
@@ -272,11 +284,135 @@ function Checkout() {
                   <p className="test-note" style={{ marginBottom: 16 }}>
                     💳 Test only: use <code>4242 4242 4242 4242</code> for success, or <code>4000 0000 0000 0002</code> to test decline.
                   </p>
+
+                  <style>{`
+                    .payment-card-visual {
+                      perspective: 1000px;
+                      width: 100%;
+                      max-width: 320px;
+                      height: 190px;
+                      margin: 0 auto 24px;
+                    }
+                    .card-inner {
+                      position: relative;
+                      width: 100%;
+                      height: 100%;
+                      transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+                      transform-style: preserve-3d;
+                    }
+                    .card-inner.flipped {
+                      transform: rotateY(180deg);
+                    }
+                    .card-face {
+                      position: absolute;
+                      width: 100%;
+                      height: 100%;
+                      backface-visibility: hidden;
+                      border-radius: 14px;
+                      color: white;
+                      box-shadow: 0 8px 24px rgba(30, 41, 59, 0.15);
+                      font-family: monospace;
+                    }
+                    .card-face.front {
+                      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+                      padding: 20px;
+                      display: flex;
+                      flex-direction: column;
+                      justify-content: space-between;
+                    }
+                    .card-face.back {
+                      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+                      transform: rotateY(180deg);
+                      display: flex;
+                      flex-direction: column;
+                      justify-content: space-between;
+                      padding: 20px 0;
+                    }
+                    .card-magnetic-strip {
+                      background: #000;
+                      height: 40px;
+                      width: 100%;
+                      margin-top: 10px;
+                    }
+                    .card-signature-area {
+                      background: #fff;
+                      height: 36px;
+                      margin: 0 20px;
+                      border-radius: 4px;
+                      display: flex;
+                      align-items: center;
+                      justify-content: flex-end;
+                      padding-right: 12px;
+                      color: #000;
+                      font-weight: bold;
+                    }
+                    .card-brand-logo {
+                      font-size: 18px;
+                      font-weight: 800;
+                      text-transform: uppercase;
+                      font-style: italic;
+                      text-align: right;
+                    }
+                    .card-chip {
+                      width: 38px;
+                      height: 28px;
+                      background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%);
+                      border-radius: 6px;
+                    }
+                  `}</style>
+
+                  {/* 3D Rotating Credit Card Visualizer */}
+                  <div className="payment-card-visual">
+                    <div className={`card-inner ${isCardFlipped ? 'flipped' : ''}`}>
+                      {/* Front Face */}
+                      <div className="card-face front">
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <div className="card-chip" />
+                          <div className="card-brand-logo">
+                            {getCardBrand(form.card_number) === "visa" && <span style={{ color: "#3b82f6" }}>VISA</span>}
+                            {getCardBrand(form.card_number) === "mastercard" && <span style={{ color: "#ef4444" }}>Mastercard</span>}
+                            {getCardBrand(form.card_number) === "amex" && <span style={{ color: "#10b981" }}>AMEX</span>}
+                            {getCardBrand(form.card_number) === "discover" && <span style={{ color: "#f59e0b" }}>Discover</span>}
+                            {getCardBrand(form.card_number) === "generic" && <span style={{ color: "#94a3b8" }}>CARD</span>}
+                          </div>
+                        </div>
+                        
+                        <div style={{ fontSize: 19, letterSpacing: 2.5, margin: "16px 0", color: "#f8fafc", textAlign: "center" }}>
+                          {form.card_number || "•••• •••• •••• ••••"}
+                        </div>
+
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, textTransform: "uppercase" }}>
+                          <div>
+                            <span style={{ display: "block", color: "#94a3b8", fontSize: 9, marginBottom: 2 }}>Cardholder</span>
+                            <strong>{form.cardholder_name || "Name on Card"}</strong>
+                          </div>
+                          <div>
+                            <span style={{ display: "block", color: "#94a3b8", fontSize: 9, marginBottom: 2 }}>Expires</span>
+                            <strong>{form.expiry_date || "MM/YY"}</strong>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Back Face */}
+                      <div className="card-face back">
+                        <div className="card-magnetic-strip" />
+                        <div style={{ marginTop: 15 }}>
+                          <div className="card-signature-area">
+                            <span style={{ fontStyle: "italic", fontSize: 14 }}>{form.cvv || "•••"}</span>
+                          </div>
+                          <div style={{ padding: "8px 20px 0", fontSize: 8, color: "#64748b", textAlign: "right" }}>
+                            Authorized Signature
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                   <label>Cardholder Name *<input name="cardholder_name" value={form.cardholder_name} onChange={handleChange} required placeholder="Name on Card" /></label>
                   <label style={{ marginTop: 12 }}>Card Number *<input name="card_number" value={form.card_number} onChange={handleChange} required placeholder="4242 4242 4242 4242" /></label>
                   <div className="checkout-grid two" style={{ marginTop: 12 }}>
                     <label>Expiry Date *<input name="expiry_date" value={form.expiry_date} onChange={handleChange} required placeholder="MM/YY" /></label>
-                    <label>CVV *<input name="cvv" value={form.cvv} onChange={handleChange} required placeholder="123" /></label>
+                    <label>CVV *<input name="cvv" value={form.cvv} onChange={handleChange} onFocus={() => setIsCardFlipped(true)} onBlur={() => setIsCardFlipped(false)} required placeholder="123" /></label>
                   </div>
                 </div>
               )}

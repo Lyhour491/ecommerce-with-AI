@@ -12,45 +12,97 @@ function Wishlist() {
   const [wishlistIds, setWishlistIds] = useState([]);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  useEffect(() => {
-    // Load wishlist ids from local storage
+  const loadWishlist = async () => {
+    setLoading(true);
     try {
-      const stored = JSON.parse(localStorage.getItem("wishlist") || "[]");
-      setWishlistIds(stored);
-    } catch {
-      setWishlistIds([]);
+      // 1. Try to fetch wishlist from backend (authenticated)
+      const res = await api.get("/wishlist");
+      const dbProducts = res.data;
+      
+      // 2. Check if there are local wishlist items from guest session to sync
+      const local = JSON.parse(localStorage.getItem("wishlist") || "[]");
+      if (local.length > 0) {
+        // Sync local items to DB
+        await Promise.all(
+          local.map(id => api.post("/wishlist", { product_id: id }).catch(() => null))
+        );
+        // Clear local storage since they are synced to DB
+        localStorage.removeItem("wishlist");
+        // Refetch updated wishlist
+        const updatedRes = await api.get("/wishlist");
+        setProducts(updatedRes.data);
+        setWishlistIds(updatedRes.data.map(p => p.id));
+      } else {
+        setProducts(dbProducts);
+        setWishlistIds(dbProducts.map(p => p.id));
+      }
+      setIsAuthenticated(true);
+    } catch (err) {
+      // 3. Fallback to local storage (guest)
+      setIsAuthenticated(false);
+      let localIds = [];
+      try {
+        localIds = JSON.parse(localStorage.getItem("wishlist") || "[]");
+      } catch {
+        localIds = [];
+      }
+      setWishlistIds(localIds);
+
+      // Load all products to filter
+      try {
+        const prodRes = await api.get("/products");
+        const allProducts = unwrapList(prodRes.data, ["products"]);
+        setProducts(allProducts.filter(p => localIds.includes(p.id)));
+      } catch (prodErr) {
+        console.error("Failed to load products for guest wishlist:", prodErr);
+      }
+    } finally {
+      setLoading(false);
     }
-
-    // Load all products to filter
-    api.get("/products")
-      .then((res) => {
-        setProducts(unwrapList(res.data, ["products"]));
-      })
-      .catch((err) => console.error(err))
-      .finally(() => setLoading(false));
-  }, []);
-
-  const toggleWishlist = (id) => {
-    const nextIds = wishlistIds.includes(id)
-      ? wishlistIds.filter((item) => item !== id)
-      : [...wishlistIds, id];
-    
-    setWishlistIds(nextIds);
-    localStorage.setItem("wishlist", JSON.stringify(nextIds));
   };
 
-  const wishlistedProducts = products.filter((product) => wishlistIds.includes(product.id));
+  useEffect(() => {
+    loadWishlist();
+  }, []);
 
-  if (loading) return <div className="loading">Loading your whitelist...</div>;
+  const toggleWishlist = async (id) => {
+    if (isAuthenticated) {
+      try {
+        const res = await api.post("/wishlist", { product_id: id });
+        const { in_wishlist } = res.data;
+        if (in_wishlist) {
+          setWishlistIds(prev => [...prev, id]);
+          // Add product to state by fetching details or reloading
+          loadWishlist();
+        } else {
+          setWishlistIds(prev => prev.filter(item => item !== id));
+          setProducts(prev => prev.filter(p => p.id !== id));
+        }
+      } catch (err) {
+        console.error("Failed to toggle DB wishlist:", err);
+      }
+    } else {
+      const nextIds = wishlistIds.includes(id)
+        ? wishlistIds.filter((item) => item !== id)
+        : [...wishlistIds, id];
+      
+      setWishlistIds(nextIds);
+      localStorage.setItem("wishlist", JSON.stringify(nextIds));
+      setProducts(prev => prev.filter(p => nextIds.includes(p.id)));
+    }
+  };
+
+  if (loading) return <div className="loading">Loading your wishlist...</div>;
 
   return (
     <main className="proshop-page">
       <div className="container" style={{ maxWidth: 1180, padding: "34px 22px 64px" }}>
-        <h1 className="page-title" style={{ marginBottom: 8 }}>My whitelist</h1>
+        <h1 className="page-title" style={{ marginBottom: 8 }}>My Wishlist</h1>
         <p className="page-subtitle" style={{ marginBottom: 34 }}>Manage the products you have whitelisted for future review.</p>
 
-        {wishlistedProducts.length === 0 ? (
+        {products.length === 0 ? (
           <div className="card" style={{ padding: "64px 24px", textAlign: "center", background: "white", display: "flex", flexDirection: "column", alignItems: "center", gap: 18 }}>
             <div style={{
               width: 80, height: 80, borderRadius: "50%", background: "#fef2f2",
@@ -59,15 +111,15 @@ function Wishlist() {
             }}>
               ♥
             </div>
-            <h2 style={{ margin: 0, fontSize: 24, color: "var(--text)" }}>Your whitelist is empty</h2>
+            <h2 style={{ margin: 0, fontSize: 24, color: "var(--text)" }}>Your wishlist is empty</h2>
             <p style={{ margin: 0, color: "var(--muted)", maxWidth: 380, fontSize: 15 }}>
-              Add items to your whitelist to keep track of them. You can view, compare, or buy them anytime.
+              Add items to your wishlist to keep track of them. You can view, compare, or buy them anytime.
             </p>
             <Link to="/products" className="btn btn-primary" style={{ marginTop: 8 }}>Browse Products</Link>
           </div>
         ) : (
           <div className="pro-product-grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 24 }}>
-            {wishlistedProducts.map((product) => {
+            {products.map((product) => {
               const imageUrl = getImageUrl(product);
               const stock = Number(product.stock || 0);
               return (

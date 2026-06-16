@@ -8,6 +8,7 @@ use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\ProductImage;
 use App\Models\User;
+use App\Models\Review;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -185,6 +186,77 @@ class FullDemoSeeder extends Seeder
                     'quantity' => $quantity,
                     'price' => $product->price,
                 ]);
+            }
+        }
+
+        // Create additional customers for review seeding
+        $alice = User::updateOrCreate(
+            ['email' => 'alice@gmail.com'],
+            ['name' => 'Alice Johnson', 'password' => Hash::make('password'), 'role' => 'customer']
+        );
+        $bob = User::updateOrCreate(
+            ['email' => 'bob@gmail.com'],
+            ['name' => 'Bob Smith', 'password' => Hash::make('password'), 'role' => 'customer']
+        );
+        $charlie = User::updateOrCreate(
+            ['email' => 'charlie@gmail.com'],
+            ['name' => 'Charlie Brown', 'password' => Hash::make('password'), 'role' => 'customer']
+        );
+
+        Review::query()->delete();
+
+        // Seed Reviews
+        $reviews = [
+            [
+                'product' => 'ProSeries Wireless Headphones',
+                'reviews' => [
+                    ['user' => $alice, 'rating' => 5, 'comment' => 'Incredible sound quality! The active noise cancellation works like magic, and the cushions are extremely comfortable.', 'verified' => true],
+                    ['user' => $bob, 'rating' => 4, 'comment' => 'Really good headphones, sounds amazing and holds battery for a long time. Just a bit heavy on my ears after several hours.', 'verified' => true],
+                    ['user' => $customer, 'rating' => 5, 'comment' => 'Premium packaging, premium build, and stellar performance. Best purchase I have made this year!', 'verified' => true]
+                ]
+            ],
+            [
+                'product' => 'Sonic Wireless Pro',
+                'reviews' => [
+                    ['user' => $charlie, 'rating' => 5, 'comment' => 'Absolutely love these earbuds. They connect instantly and the sound profile is very balanced. Highly recommend!', 'verified' => false],
+                    ['user' => $alice, 'rating' => 4, 'comment' => 'Great value for money. Battery life easily lasts me all day and call clarity is top notch.', 'verified' => true]
+                ]
+            ],
+            [
+                'product' => 'Pro Precision Watch',
+                'reviews' => [
+                    ['user' => $customer, 'rating' => 4, 'comment' => 'Very clean and minimal design. The health tracking metrics seem accurate. Battery life is decent too.', 'verified' => true],
+                    ['user' => $bob, 'rating' => 3, 'comment' => 'Decent smart watch, but the step tracking is sometimes inaccurate. Beautiful build quality though.', 'verified' => false]
+                ]
+            ],
+            [
+                'product' => 'Sprint Runner Elite',
+                'reviews' => [
+                    ['user' => $alice, 'rating' => 5, 'comment' => "Best running shoes I've ever owned. Very light and springy. Runs true to size.", 'verified' => true]
+                ]
+            ],
+            [
+                'product' => 'Nordic Oak Headphone Stand',
+                'reviews' => [
+                    ['user' => $bob, 'rating' => 5, 'comment' => 'Looks gorgeous on my desk! The wood finish is very premium and matches my setup perfectly.', 'verified' => true],
+                    ['user' => $charlie, 'rating' => 4, 'comment' => 'Stable stand, holds large headphones well. Wish it had a small tray at the bottom for cables.', 'verified' => false]
+                ]
+            ]
+        ];
+
+        foreach ($reviews as $item) {
+            $productName = $item['product'];
+            $product = $created[$productName] ?? null;
+            if ($product) {
+                foreach ($item['reviews'] as $rev) {
+                    Review::create([
+                        'user_id' => $rev['user']->id,
+                        'product_id' => $product->id,
+                        'rating' => $rev['rating'],
+                        'comment' => $rev['comment'],
+                        'verified_purchase' => $rev['verified'],
+                    ]);
+                }
             }
         }
     }

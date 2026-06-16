@@ -29,7 +29,7 @@ class Product extends Model
         'is_active' => 'boolean',
     ];
 
-    protected $appends = ['primary_image_url', 'image_urls'];
+    protected $appends = ['primary_image_url', 'image_urls', 'average_rating', 'reviews_count'];
 
     public function seller()
     {
@@ -93,5 +93,26 @@ class Product extends Model
         }
 
         return $urls;
+    }
+
+    public function reviews()
+    {
+        return $this->hasMany(Review::class);
+    }
+
+    public function getAverageRatingAttribute(): float
+    {
+        if ($this->relationLoaded('reviews')) {
+            return round($this->reviews->avg('rating') ?: 0.0, 1);
+        }
+        return round($this->reviews()->avg('rating') ?: 0.0, 1);
+    }
+
+    public function getReviewsCountAttribute(): int
+    {
+        if ($this->relationLoaded('reviews')) {
+            return $this->reviews->count();
+        }
+        return $this->reviews()->count();
     }
 }

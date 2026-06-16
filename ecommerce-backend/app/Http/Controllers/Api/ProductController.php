@@ -16,7 +16,7 @@ class ProductController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Product::with(['category', 'images']);
+        $query = Product::with(['category', 'images', 'reviews']);
 
         if ($request->filled('category_id')) {
             $query->where('category_id', $request->category_id);
@@ -146,7 +146,7 @@ class ProductController extends Controller
     public function show(Product $product)
     {
         return response()->json(
-            $product->load(['category', 'images'])
+            $product->load(['category', 'images', 'reviews'])
         );
     }
 

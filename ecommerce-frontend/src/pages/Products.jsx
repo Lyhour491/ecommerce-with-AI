@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import api from "../api/axios";
 import { getImageUrl, money, unwrapList } from "../utils/store";
+import { useDocumentTitle } from "../utils/seo";
 
 const productCategory = (product) => product.category?.name || product.category_name || product.category || "General";
 const productRating = (product) => Number(product.rating || product.average_rating || 4.6);
@@ -10,6 +11,7 @@ const productStorage = (product) => product.sku || product.storage || product.st
 
 function Products() {
   const [searchParams] = useSearchParams();
+  useDocumentTitle("Products Catalog - Find the Best Tech & Gear", "Browse the full catalog of premium products, including audio stand systems, wearable smart tech, and running shoes, all with AI recommendations.");
   const searchParamQuery = searchParams.get("search") || "";
   const searchParamCategory = searchParams.get("category") || "";
 
