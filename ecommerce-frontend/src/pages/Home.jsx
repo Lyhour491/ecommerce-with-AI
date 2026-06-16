@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import api from "../api/axios";
 import { getImageUrl, money, unwrapList } from "../utils/store";
 import { useDocumentTitle } from "../utils/seo";
+import { useToast } from "../context/ToastContext";
 import { 
   Sparkles, Cpu, Shirt, Home as HomeIcon, Trophy, BookOpen, Rocket, 
   ArrowRight, Star, ShoppingCart, MessageSquare, Send, X, ShieldCheck, 
@@ -12,6 +13,7 @@ import {
 function Home() {
   const navigate = useNavigate();
   useDocumentTitle("Home - Shop Smarter with AI", "Welcome to MarketAI - the next-generation e-commerce platform with automated AI assistants.");
+  const { showToast } = useToast();
   const [topProducts, setTopProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   
@@ -57,9 +59,9 @@ function Home() {
     setAddingToCartId(productId);
     try {
       await api.post("/cart", { product_id: productId, quantity: 1 });
-      alert("Product added to cart successfully!");
+      showToast("Product added to cart successfully!");
     } catch (err) {
-      alert("Failed to add product to cart.");
+      showToast("Failed to add product to cart.", "error");
     } finally {
       setAddingToCartId(null);
     }
