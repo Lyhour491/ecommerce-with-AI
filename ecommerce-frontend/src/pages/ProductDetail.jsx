@@ -3,6 +3,8 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import api from "../api/axios";
 import { firstApiError, getImageUrl, getProductImages, money, unwrapList } from "../utils/store";
 import { useDocumentTitle } from "../utils/seo";
+import { aiService } from "../services/aiService";
+import { authStore } from "../store/authStore";
 
 const productCategory = (product) => product?.category?.name || product?.category_name || product?.category || "General";
 const productImages = (product) => getProductImages(product);
@@ -121,11 +123,14 @@ function ProductDetail() {
   useEffect(() => setActiveImage(0), [id]);
 
   useEffect(() => {
-    if (!id) return;
+    if (!id || !authStore.getToken()) {
+      setAiRecommendations([]);
+      return;
+    }
     setLoadingAiRec(true);
-    api.get(`/ai/recommend-products?product_id=${id}`)
-      .then((res) => {
-        setAiRecommendations(res.data || []);
+    aiService.recommendProducts(id)
+      .then((data) => {
+        setAiRecommendations(data || []);
       })
       .catch((err) => {
         console.error("Failed to load AI recommendations", err);

@@ -259,5 +259,7 @@ class FullDemoSeeder extends Seeder
                 }
             }
         }
+
+        $this->call(RolePermissionSeeder::class);
     }
 }

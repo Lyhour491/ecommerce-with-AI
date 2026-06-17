@@ -18,8 +18,8 @@ use App\Http\Controllers\Api\PayoutController;
 use App\Http\Controllers\Api\AdminSettingsController;
 
 
-Route::post('/register', [AuthController::class, 'register']);
-Route::post('/login', [AuthController::class, 'login']);
+Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:register');
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
 Route::get('/auth/{provider}/redirect', [AuthController::class, 'redirectToProvider']);
 Route::post('/auth/{provider}/callback', [AuthController::class, 'handleProviderCallback']);
 Route::post('/forgot-password', [AuthController::class, 'sendResetLinkEmail']);
@@ -33,10 +33,10 @@ Route::get('/top-products', [ProductController::class, 'topProducts']);
 Route::get('/products/{product}', [ProductController::class, 'show']);
 Route::get('/products/{product}/reviews', [ReviewController::class, 'index']);
 
-Route::post('/ai/chat', [AiController::class, 'chat']);
-Route::get('/ai/recommend-products', [AiController::class, 'recommendProducts']);
-
 Route::middleware('auth:sanctum')->group(function () {
+
+    Route::post('/ai/chat', [AiController::class, 'chat'])->middleware('throttle:ai-chat');
+    Route::get('/ai/recommend-products', [AiController::class, 'recommendProducts']);
 
     Route::get('/user', [AuthController::class, 'user']);
     Route::put('/user/profile', [AuthController::class, 'updateProfile']);
@@ -89,6 +89,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/products/{product}', [SellerProductController::class, 'destroy']);
         Route::get('/orders', [SellerProductController::class, 'orders']);
         Route::post('/ai/generate-product-content', [AiController::class, 'generateProductContent']);
+        Route::post('/ai/product-title', [AiController::class, 'generateProductTitle']);
+        Route::post('/ai/product-description', [AiController::class, 'generateProductDescription']);
+        Route::post('/ai/product-category', [AiController::class, 'suggestProductCategory']);
+        Route::post('/ai/product-tags', [AiController::class, 'generateProductTags']);
+        Route::post('/ai/product-price', [AiController::class, 'suggestProductPrice']);
 
         Route::get('/payouts', [PayoutController::class, 'sellerIndex']);
         Route::post('/payouts', [PayoutController::class, 'sellerStore']);

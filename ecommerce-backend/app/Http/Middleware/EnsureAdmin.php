@@ -10,7 +10,7 @@ class EnsureAdmin
 {
     public function handle(Request $request, Closure $next): Response
     {
-        if (!$request->user() || $request->user()->role !== 'admin') {
+        if (!$request->user() || $request->user()->cannot('admin.access')) {
             return response()->json(['message' => 'Admin access required'], 403);
         }
 

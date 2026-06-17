@@ -13,6 +13,7 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Throwable;
 
 class AuthController extends Controller
 {
@@ -30,6 +31,12 @@ class AuthController extends Controller
             'password' => $request->password,
             'role' => 'customer',
         ]);
+
+        try {
+            $user->assignRole('customer');
+        } catch (Throwable) {
+            //
+        }
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
@@ -196,6 +203,12 @@ class AuthController extends Controller
                 'avatar' => $socialUser->getAvatar(),
                 'role' => 'customer',
             ]);
+
+            try {
+                $user->assignRole('customer');
+            } catch (Throwable) {
+                //
+            }
         }
 
         $token = $user->createToken('auth_token')->plainTextToken;

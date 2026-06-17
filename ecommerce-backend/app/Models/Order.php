@@ -18,6 +18,7 @@ class Order extends Model
         'payment_method',
         'payment_status',
         'payment_reference',
+        'transaction_id',
         'shipping_method',
         'shipping_fee',
         'tax',

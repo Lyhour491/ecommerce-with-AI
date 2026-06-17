@@ -11,12 +11,17 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Cache;
+use App\Repositories\ProductRepository;
 
 class ProductController extends Controller
 {
+    public function __construct(private ProductRepository $products)
+    {
+    }
+
     private function canManageProducts(Request $request): bool
     {
-        return $request->user('sanctum')?->role === 'admin';
+        return (bool) $request->user('sanctum')?->can('admin.access');
     }
 
     private function productRelations(bool $includeSeller = false): array
@@ -197,6 +202,8 @@ class ProductController extends Controller
         if (!$product->is_active && !$this->canManageProducts($request)) {
             abort(404);
         }
+
+        $this->products->incrementViews($product);
 
         return response()->json(
             $product->load(array_merge($this->productRelations($this->canManageProducts($request)), ['reviews']))

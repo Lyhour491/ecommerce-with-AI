@@ -5,16 +5,18 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\Category;
+use App\Services\Ai\ProductContentService;
+use App\Services\Ai\ShoppingAssistantService;
 use App\Services\GeminiService;
 use Illuminate\Http\Request;
 
 class AiController extends Controller
 {
-    protected GeminiService $geminiService;
-
-    public function __construct(GeminiService $geminiService)
-    {
-        $this->geminiService = $geminiService;
+    public function __construct(
+        protected GeminiService $geminiService,
+        private ShoppingAssistantService $shoppingAssistant,
+        private ProductContentService $productContent,
+    ) {
     }
 
     /**
@@ -29,74 +31,8 @@ class AiController extends Controller
             'history.*.text' => 'required|string',
         ]);
 
-        $message = $request->input('message');
-        $history = $request->input('history', []);
-
-        // 1. Gather Catalog Context
-        $products = Product::with('category')
-            ->where('is_active', true)
-            ->limit(15) // Limit to top/recent products to stay within reason
-            ->get()
-            ->map(function ($p) {
-                return [
-                    'id' => $p->id,
-                    'name' => $p->name,
-                    'price' => '$' . number_format($p->price, 2),
-                    'description' => substr($p->description, 0, 120) . '...',
-                    'category' => $p->category?->name ?? 'General',
-                    'stock' => $p->stock > 0 ? "In Stock ({$p->stock})" : "Out of Stock",
-                ];
-            });
-
-        $catalogContext = "Store Product Catalog:\n" . json_encode($products, JSON_PRETTY_PRINT) . "\n\n";
-
-        // 2. Gather User Context (if authenticated via Sanctum)
-        $userContext = "User status: Guest User.\n";
-        $user = $request->user('sanctum');
-
-        if ($user) {
-            $orders = $user->orders()->with('orderItems.product')->latest()->limit(5)->get();
-            $userContext = "User status: Authenticated. Name: {$user->name}, Email: {$user->email}\n";
-
-            if ($orders->isNotEmpty()) {
-                $userContext .= "Recent Order History:\n";
-                foreach ($orders as $order) {
-                    $userContext .= "- Order ID: #{$order->id}, Status: {$order->status}, Total: \${$order->total_amount}, Created: {$order->created_at->toDateTimeString()}\n";
-                    foreach ($order->orderItems as $item) {
-                        $userContext .= "  * " . ($item->product?->name ?? 'Product') . " (Qty: {$item->quantity}, Price: \${$item->price})\n";
-                    }
-                }
-            } else {
-                $userContext .= "This user hasn't placed any orders yet.\n";
-            }
-        }
-
-        // 3. Construct System Instructions
-        $systemInstruction = "You are a customer support AI assistant for a premium e-commerce store. Here is the context of products available and user history:\n\n"
-            . $catalogContext
-            . $userContext
-            . "\nInstructions:\n"
-            . "1. Provide helpful, conversational, and polite replies to the user's queries.\n"
-            . "2. Use the Product Catalog to suggest products. Format names in bold and specify their prices. ALWAYS link to products using `/products/{id}` path (e.g. [ProSeries Earbuds](/products/4) ) when recommending specific products!\n"
-            . "3. If the user asks about order status or their history, refer to their Order History. If they are guest users, kindly ask them to register/login to track orders.\n"
-            . "4. Keep replies concise and formatted in clean markdown (lists, bullet points, headers, bold text).\n"
-            . "5. Do not invent products or services that are not in the catalog. If a product isn't found, offer to find matching items from our categories.";
-
-        // 4. Construct Prompt with History
-        $fullPrompt = "";
-        if (!empty($history)) {
-            $fullPrompt .= "Conversation History:\n";
-            foreach ($history as $chat) {
-                $roleName = $chat['role'] === 'user' ? 'Customer' : 'Assistant';
-                $fullPrompt .= "{$roleName}: {$chat['text']}\n";
-            }
-        }
-        $fullPrompt .= "Current Message:\nCustomer: {$message}\nAssistant:";
-
-        $response = $this->geminiService->generateContent($fullPrompt, $systemInstruction);
-
         return response()->json([
-            'response' => $response,
+            'response' => $this->shoppingAssistant->chat($request),
         ]);
     }
 
@@ -190,28 +126,42 @@ class AiController extends Controller
             'prompt' => 'required|string|max:1000',
         ]);
 
-        $promptInput = $request->input('prompt');
+        return response()->json($this->productContent->draft($request->input('prompt')));
+    }
 
-        $categories = Category::all()->pluck('name')->toArray();
-        $categoriesList = implode(', ', $categories);
+    public function generateProductTitle(Request $request)
+    {
+        $data = $request->validate(['prompt' => 'required|string|max:1000']);
 
-        $prompt = "Generate optimized e-commerce product listings information based on keywords or short prompt: '{$promptInput}'.\n"
-            . "Recommend one of these existing store categories if possible: {$categoriesList}.\n"
-            . "Create a professional title, a competitive suggested price, the recommended category, an engaging HTML-formatted description outlining key features, specs, and care tips, and a list of comma-separated search/SEO tags.";
+        return response()->json($this->productContent->title($data['prompt']));
+    }
 
-        $systemInstruction = "You are a professional e-commerce product catalog manager. Respond ONLY with a valid JSON matching this schema:\n"
-            . "{\n"
-            . "  \"name\": \"Optimized Title\",\n"
-            . "  \"price\": 39.99,\n"
-            . "  \"category_suggestion\": \"Electronics\",\n"
-            . "  \"description\": \"<p>Product Description in clean HTML</p>\",\n"
-            . "  \"tags\": \"tag1, tag2, tag3\"\n"
-            . "}\n"
-            . "Do not write any markdown outside of the JSON block.";
+    public function generateProductDescription(Request $request)
+    {
+        $data = $request->validate(['prompt' => 'required|string|max:1000']);
 
-        $aiResult = $this->geminiService->generateContent($prompt, $systemInstruction, true);
+        return response()->json($this->productContent->description($data['prompt']));
+    }
 
-        return response()->json($aiResult);
+    public function suggestProductCategory(Request $request)
+    {
+        $data = $request->validate(['prompt' => 'required|string|max:1000']);
+
+        return response()->json($this->productContent->category($data['prompt']));
+    }
+
+    public function generateProductTags(Request $request)
+    {
+        $data = $request->validate(['prompt' => 'required|string|max:1000']);
+
+        return response()->json($this->productContent->tags($data['prompt']));
+    }
+
+    public function suggestProductPrice(Request $request)
+    {
+        $data = $request->validate(['prompt' => 'required|string|max:1000']);
+
+        return response()->json($this->productContent->price($data['prompt']));
     }
 
     /**

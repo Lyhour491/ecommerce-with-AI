@@ -7,12 +7,17 @@ use App\Models\Cart;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
+use App\Services\CheckoutService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
 
 class OrderController extends Controller
 {
+    public function __construct(private CheckoutService $checkoutService)
+    {
+    }
+
     private function orderRelations(): array
     {
         return [
@@ -33,7 +38,7 @@ class OrderController extends Controller
 
         $query = Order::with($this->orderRelations());
 
-        if ($request->user()->role !== 'admin') {
+        if ($request->user()->cannot('admin.access')) {
             $query->where('user_id', $request->user()->id);
         }
 
@@ -48,7 +53,7 @@ class OrderController extends Controller
             return response()->json(['message' => 'Unauthenticated. Please login first.'], 401);
         }
 
-        if ($order->user_id !== $request->user()->id && $request->user()->role !== 'admin') {
+        if ($order->user_id !== $request->user()->id && $request->user()->cannot('admin.access')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -62,8 +67,8 @@ class OrderController extends Controller
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
 
-        $isAdmin = $user->role === 'admin';
-        $isSeller = $user->role === 'seller' && $order->orderItems()->whereHas('product', function ($q) use ($user) {
+        $isAdmin = $user->can('admin.access');
+        $isSeller = $user->can('seller.access') && $order->orderItems()->whereHas('product', function ($q) use ($user) {
             $q->where('user_id', $user->id);
         })->exists();
 
@@ -85,7 +90,7 @@ class OrderController extends Controller
 
     public function update(Request $request, Order $order)
     {
-        if (!$request->user() || $request->user()->role !== 'admin') {
+        if (!$request->user() || $request->user()->cannot('admin.access')) {
             return response()->json(['message' => 'Admin access required'], 403);
         }
 
@@ -120,77 +125,8 @@ class OrderController extends Controller
             'cvv' => 'required_if:payment_method,test_card|nullable|string|min:3|max:4',
         ]);
 
-        $cartItems = Cart::with('product')
-            ->where('user_id', $request->user()->id)
-            ->get();
+        [$payload, $status] = $this->checkoutService->checkout($request, $data);
 
-        if ($cartItems->isEmpty()) {
-            return response()->json(['message' => 'Cart is empty'], 400);
-        }
-
-        return DB::transaction(function () use ($request, $cartItems, $data) {
-            $total = 0;
-
-            foreach ($cartItems as $item) {
-                if (!$item->product) {
-                    return response()->json(['message' => 'Product not found in cart'], 404);
-                }
-
-                if ($item->product->stock < $item->quantity) {
-                    return response()->json([
-                        'message' => 'Not enough stock for ' . $item->product->name
-                    ], 400);
-                }
-
-                $total += $item->product->price * $item->quantity;
-            }
-
-            $shippingMethod = $data['shipping_method'] ?? 'standard';
-            $shippingFee = $shippingMethod === 'express' ? 15 : 0;
-            $tax = round($total * 0.08, 2);
-            $grandTotal = round($total + $shippingFee + $tax, 2);
-            $paymentMethod = $data['payment_method'] ?? 'test_card';
-
-            // TEST ONLY: no real gateway is called and no card details are stored.
-            // To simulate a declined card, use card number 4000000000000002.
-            $digitsOnlyCard = preg_replace('/\D+/', '', $data['card_number'] ?? '');
-            if ($paymentMethod === 'test_card' && $digitsOnlyCard === '4000000000000002') {
-                return response()->json(['message' => 'Test payment declined. Use any other test card number.'], 422);
-            }
-
-            $order = Order::create([
-                'user_id' => $request->user()->id,
-                'total_price' => $grandTotal,
-                'status' => 'processing',
-                'shipping_address' => $request->shipping_address,
-                'phone' => $request->phone,
-                'shipping_method' => $shippingMethod,
-                'shipping_fee' => $shippingFee,
-                'tax' => $tax,
-                'payment_method' => $paymentMethod,
-                'payment_status' => $paymentMethod === 'cash_on_delivery' ? 'pending' : 'paid',
-                'payment_reference' => 'TEST-' . strtoupper(uniqid()),
-            ]);
-
-            foreach ($cartItems as $item) {
-                OrderItem::create([
-                    'order_id' => $order->id,
-                    'product_id' => $item->product_id,
-                    'quantity' => $item->quantity,
-                    'price' => $item->product->price,
-                ]);
-
-                $item->product->decrement('stock', $item->quantity);
-            }
-
-            Cart::where('user_id', $request->user()->id)->delete();
-
-            Cache::forget('products:top');
-
-            return response()->json([
-                'message' => 'Checkout successful. Test payment processed.',
-                'order' => $order->load($this->orderRelations())
-            ], 201);
-        });
+        return response()->json($payload, $status);
     }
 }

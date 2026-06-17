@@ -6,13 +6,17 @@ use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\ProductImage;
 use App\Services\GeminiService;
+use App\Services\SellerProductService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class SellerProductController extends Controller
 {
-    public function __construct(private GeminiService $geminiService)
+    public function __construct(
+        private GeminiService $geminiService,
+        private SellerProductService $sellerProductService,
+    )
     {
     }
 
@@ -49,37 +53,7 @@ class SellerProductController extends Controller
             'tags'        => 'nullable|string|max:1000',
         ]);
 
-        $categoryName = \App\Models\Category::find($request->category_id)?->name ?? 'General';
-        $moderation = $this->moderateProductInput($request, $categoryName);
-        $needsReview = $moderation['needs_review'];
-
-        $product = Product::create([
-            'user_id'     => $request->user()->id,
-            'category_id' => $request->category_id,
-            'name'        => $request->name,
-            'slug'        => Str::slug($request->name),
-            'description' => $request->description,
-            'price'       => $request->price,
-            'stock'       => $request->stock,
-            'tags'        => $request->tags,
-            'is_active'   => !$needsReview,
-            'moderation_status' => $needsReview ? 'pending_review' : 'approved',
-            'moderation_is_fake' => $moderation['is_fake'],
-            'moderation_is_illegal' => $moderation['is_illegal'],
-            'moderation_reason' => $moderation['reason'],
-            'moderated_at' => now(),
-        ]);
-
-        $this->syncImages($request, $product);
-
-        return response()->json([
-            'message' => $needsReview
-                ? 'Product saved for admin review because AI detected a possible policy issue. It is not public yet.'
-                : 'Product created successfully',
-            'product' => $product->load(['category', 'images'])
-                ->loadAvg('reviews', 'rating')
-                ->loadCount('reviews'),
-        ], 201);
+        return response()->json($this->sellerProductService->create($request), 201);
     }
 
     /**
@@ -121,36 +95,7 @@ class SellerProductController extends Controller
             'tags'        => 'nullable|string|max:1000',
         ]);
 
-        $categoryName = \App\Models\Category::find($request->category_id)?->name ?? 'General';
-        $moderation = $this->moderateProductInput($request, $categoryName);
-        $needsReview = $moderation['needs_review'];
-
-        $product->update([
-            'category_id' => $request->category_id,
-            'name'        => $request->name,
-            'slug'        => Str::slug($request->name),
-            'description' => $request->description,
-            'price'       => $request->price,
-            'stock'       => $request->stock,
-            'tags'        => $request->tags,
-            'is_active'   => !$needsReview,
-            'moderation_status' => $needsReview ? 'pending_review' : 'approved',
-            'moderation_is_fake' => $moderation['is_fake'],
-            'moderation_is_illegal' => $moderation['is_illegal'],
-            'moderation_reason' => $moderation['reason'],
-            'moderated_at' => now(),
-        ]);
-
-        $this->syncImages($request, $product);
-
-        return response()->json([
-            'message' => $needsReview
-                ? 'Product updated and sent to admin review because AI detected a possible policy issue. It is not public yet.'
-                : 'Product updated successfully',
-            'product' => $product->load(['category', 'images'])
-                ->loadAvg('reviews', 'rating')
-                ->loadCount('reviews'),
-        ]);
+        return response()->json($this->sellerProductService->update($request, $product));
     }
 
     /**
@@ -162,13 +107,7 @@ class SellerProductController extends Controller
             return response()->json(['message' => 'This product does not belong to you'], 403);
         }
 
-        foreach ($product->images as $image) {
-            if ($image->image_path && !str_starts_with($image->image_path, 'http')) {
-                Storage::disk('public')->delete($image->image_path);
-            }
-        }
-
-        $product->delete();
+        $this->sellerProductService->delete($product);
 
         return response()->json(['message' => 'Product deleted successfully']);
     }

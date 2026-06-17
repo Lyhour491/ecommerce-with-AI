@@ -6,11 +6,16 @@ use App\Http\Controllers\Controller;
 use App\Models\Review;
 use App\Models\Product;
 use App\Models\Order;
+use App\Repositories\ProductRepository;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class ReviewController extends Controller
 {
+    public function __construct(private ProductRepository $products)
+    {
+    }
+
     /**
      * Get reviews for a specific product.
      */
@@ -66,6 +71,8 @@ class ReviewController extends Controller
             'comment' => $request->comment,
             'verified_purchase' => $hasPurchased,
         ]);
+
+        $this->products->refreshRatingStats($product);
 
         return response()->json([
             'message' => 'Review submitted successfully',

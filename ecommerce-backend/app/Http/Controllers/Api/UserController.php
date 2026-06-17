@@ -9,12 +9,13 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Cache;
+use Throwable;
 
 class UserController extends Controller
 {
     private function requireAdmin(Request $request)
     {
-        if (!$request->user() || $request->user()->role !== 'admin') {
+        if (!$request->user() || $request->user()->cannot('admin.access')) {
             abort(response()->json(['message' => 'Admin access required'], 403));
         }
     }
@@ -48,6 +49,7 @@ class UserController extends Controller
         }
 
         $user->update($data);
+        $this->syncSpatieRole($user);
 
         return response()->json([
             'message' => 'User updated successfully',
@@ -64,6 +66,7 @@ class UserController extends Controller
         ]);
 
         $user->update(['role' => $data['role']]);
+        $this->syncSpatieRole($user);
 
         return response()->json([
             'message' => 'User role updated successfully',
@@ -114,6 +117,7 @@ class UserController extends Controller
             'role' => 'seller',
             'seller_status' => 'approved',
         ]);
+        $this->syncSpatieRole($user);
 
         return response()->json([
             'message' => 'Seller application approved successfully',
@@ -149,6 +153,7 @@ class UserController extends Controller
             'role' => 'customer',
             'seller_status' => 'rejected',
         ]);
+        $this->syncSpatieRole($user);
 
         $disabledProducts = Product::where('user_id', $user->id)
             ->where('is_active', true)
@@ -161,5 +166,14 @@ class UserController extends Controller
             'user' => $user->fresh()->loadCount('orders'),
             'disabled_products' => $disabledProducts,
         ]);
+    }
+
+    private function syncSpatieRole(User $user): void
+    {
+        try {
+            $user->syncRoles([$user->role]);
+        } catch (Throwable) {
+            //
+        }
     }
 }

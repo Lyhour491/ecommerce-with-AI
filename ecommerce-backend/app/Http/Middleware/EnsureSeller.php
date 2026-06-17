@@ -10,7 +10,7 @@ class EnsureSeller
 {
     public function handle(Request $request, Closure $next): Response
     {
-        if (!$request->user() || $request->user()->role !== 'seller') {
+        if (!$request->user() || $request->user()->cannot('seller.access')) {
             return response()->json(['message' => 'Seller access required'], 403);
         }
 

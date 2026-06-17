@@ -30,6 +30,9 @@ class DatabaseSeeder extends Seeder
                 'role' => 'customer',
             ]
         );
-        $this->call(FullDemoSeeder::class);
+        $this->call([
+            FullDemoSeeder::class,
+            RolePermissionSeeder::class,
+        ]);
     }
 }

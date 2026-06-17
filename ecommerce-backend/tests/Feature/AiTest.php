@@ -12,8 +12,10 @@ class AiTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_public_ai_chat_endpoint(): void
+    public function test_ai_chat_endpoint_requires_login_and_returns_response(): void
     {
+        $user = User::factory()->create(['role' => 'customer']);
+
         // 1. Create a product to inject into catalog context
         $seller = User::factory()->create(['role' => 'seller']);
         $category = Category::create([
@@ -40,6 +42,11 @@ class AiTest extends TestCase
 
         $response = $this->postJson('/api/ai/chat', $payload);
 
+        $response->assertStatus(401);
+
+        $response = $this->actingAs($user, 'sanctum')
+            ->postJson('/api/ai/chat', $payload);
+
         $response->assertStatus(200)
             ->assertJsonStructure(['response']);
 
@@ -47,8 +54,9 @@ class AiTest extends TestCase
         $this->assertNotEmpty($responseData['response']);
     }
 
-    public function test_public_ai_recommend_products_endpoint(): void
+    public function test_ai_recommend_products_endpoint_requires_login(): void
     {
+        $user = User::factory()->create(['role' => 'customer']);
         $seller = User::factory()->create(['role' => 'seller']);
         $category = Category::create([
             'name' => 'Kitchen',
@@ -75,7 +83,11 @@ class AiTest extends TestCase
             'is_active' => true,
         ]);
 
-        $response = $this->getJson("/api/ai/recommend-products?product_id={$product1->id}");
+        $this->getJson("/api/ai/recommend-products?product_id={$product1->id}")
+            ->assertStatus(401);
+
+        $response = $this->actingAs($user, 'sanctum')
+            ->getJson("/api/ai/recommend-products?product_id={$product1->id}");
 
         $response->assertStatus(200)
             ->assertJsonStructure([
@@ -124,6 +136,27 @@ class AiTest extends TestCase
         $data = $response->json();
         $this->assertNotEmpty($data['category_suggestion']);
         $this->assertNotEmpty($data['tags']);
+    }
+
+    public function test_seller_ai_product_field_endpoints(): void
+    {
+        $seller = User::factory()->create(['role' => 'seller']);
+        Category::create(['name' => 'Electronics', 'slug' => 'electronics']);
+
+        $endpoints = [
+            '/api/seller/ai/product-title' => 'title',
+            '/api/seller/ai/product-description' => 'description',
+            '/api/seller/ai/product-category' => 'category_suggestion',
+            '/api/seller/ai/product-tags' => 'tags',
+            '/api/seller/ai/product-price' => 'price',
+        ];
+
+        foreach ($endpoints as $endpoint => $field) {
+            $this->actingAs($seller, 'sanctum')
+                ->postJson($endpoint, ['prompt' => 'Ergonomic mouse'])
+                ->assertStatus(200)
+                ->assertJsonStructure([$field]);
+        }
     }
 
     public function test_seller_ai_insights_endpoint(): void

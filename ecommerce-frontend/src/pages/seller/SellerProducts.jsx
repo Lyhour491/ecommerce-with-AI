@@ -1,7 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import api from "../../api/axios";
 import { money, getImageUrl, firstApiError, unwrapList } from "../../utils/store";
 import { Plus, Pencil, Trash2, X, FileEdit, Sparkles } from "lucide-react";
+import { useAiProductDraft } from "../../hooks/useAiProductTools";
+import { useProductCategories, useSellerProducts } from "../../hooks/useSellerProducts";
 
 const getSellerProductStatus = (product, stock) => {
   if (product?.moderation_status === "pending_review") return { label: "Pending Review", className: "pending" };
@@ -13,9 +15,12 @@ const getSellerProductStatus = (product, stock) => {
 };
 
 export default function SellerProducts() {
-  const [products, setProducts] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const productsQuery = useSellerProducts();
+  const categoriesQuery = useProductCategories();
+  const aiDraftMutation = useAiProductDraft();
+  const products = productsQuery.data || [];
+  const categories = categoriesQuery.data || [];
+  const loading = productsQuery.isLoading || categoriesQuery.isLoading;
   const [viewMode, setViewMode] = useState("list");
   const [editing, setEditing] = useState(null);
   const [error, setError] = useState("");
@@ -44,10 +49,8 @@ export default function SellerProducts() {
     setGeneratingAi(true);
     setAiResult(null);
     try {
-      const res = await api.post("/seller/ai/generate-product-content", {
-        prompt: aiPrompt,
-      });
-      setAiResult(res.data);
+      const data = await aiDraftMutation.mutateAsync(aiPrompt);
+      setAiResult(data);
     } catch (err) {
       alert("Failed to generate content: " + (err.response?.data?.message || err.message));
     } finally {
@@ -82,21 +85,8 @@ export default function SellerProducts() {
   };
 
 
-  useEffect(() => {
-    loadProducts();
-    api.get("/categories").then((r) => {
-      setCategories(unwrapList(r.data, ["categories"]));
-    });
-  }, []);
-
   const loadProducts = () => {
-    setLoading(true);
-    api.get("/seller/products")
-      .then((r) => {
-        const list = Array.isArray(r.data) ? r.data : r.data?.data || [];
-        setProducts(list);
-      })
-      .finally(() => setLoading(false));
+    productsQuery.refetch();
   };
 
   const openCreate = () => {

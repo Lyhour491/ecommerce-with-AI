@@ -7,6 +7,20 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
+## MarketAI API Documentation
+
+Swagger UI is available after starting the Laravel backend:
+
+- `http://127.0.0.1:8000/docs`
+- `http://127.0.0.1:8000/api/documentation`
+
+The raw OpenAPI file is served from:
+
+- `http://127.0.0.1:8000/docs/openapi.yaml`
+- `http://127.0.0.1:8000/api/documentation/openapi.yaml`
+
+Protected routes use Laravel Sanctum. Login through `POST /api/login`, copy the `token` value, click **Authorize** in Swagger UI, and enter `Bearer your-token-here`.
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:

@@ -78,6 +78,79 @@ services:
       DB_PASSWORD: ecommerce_password
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      QUEUE_CONNECTION: redis
+      CACHE_STORE: redis
+      SESSION_DRIVER: redis
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - ecommerce_net
+
+  queue:
+    build:
+      context: ./ecommerce-backend
+      dockerfile: docker/php.dockerfile
+    container_name: ecommerce_queue
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - ./ecommerce-backend:/var/www/html
+      - ./ecommerce-backend/storage:/var/www/html/storage
+    environment:
+      APP_ENV: local
+      APP_KEY: base64:sbD/jrtfXo2swTJ9SJvTmpY4q/O/n7uRxlfsu1lDqHw=
+      APP_DEBUG: "true"
+      APP_URL: http://localhost:8000
+      DB_CONNECTION: mysql
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_DATABASE: ecommerce_store
+      DB_USERNAME: ecommerce_user
+      DB_PASSWORD: ecommerce_password
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      QUEUE_CONNECTION: redis
+      CACHE_STORE: redis
+      SESSION_DRIVER: redis
+    command: php artisan queue:work redis --sleep=3 --tries=3 --timeout=120
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - ecommerce_net
+
+  scheduler:
+    build:
+      context: ./ecommerce-backend
+      dockerfile: docker/php.dockerfile
+    container_name: ecommerce_scheduler
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - ./ecommerce-backend:/var/www/html
+      - ./ecommerce-backend/storage:/var/www/html/storage
+    environment:
+      APP_ENV: local
+      APP_KEY: base64:sbD/jrtfXo2swTJ9SJvTmpY4q/O/n7uRxlfsu1lDqHw=
+      APP_DEBUG: "true"
+      APP_URL: http://localhost:8000
+      DB_CONNECTION: mysql
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_DATABASE: ecommerce_store
+      DB_USERNAME: ecommerce_user
+      DB_PASSWORD: ecommerce_password
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      QUEUE_CONNECTION: redis
+      CACHE_STORE: redis
+      SESSION_DRIVER: redis
+    command: sh -c "while true; do php artisan schedule:run --verbose --no-interaction; sleep 60; done"
     depends_on:
       mysql:
         condition: service_healthy

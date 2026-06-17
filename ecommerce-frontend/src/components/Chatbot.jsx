@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { MessageSquare, X, Send, Sparkles, Bot, User, RefreshCw } from "lucide-react";
-import api from "../api/axios";
+import { aiService } from "../services/aiService";
+import { authStore } from "../store/authStore";
 
 export default function Chatbot() {
   const [isOpen, setIsOpen] = useState(false);
@@ -44,6 +45,18 @@ export default function Chatbot() {
     const query = (textToSend || input).trim();
     if (!query) return;
 
+    if (!authStore.getToken()) {
+      saveHistory([
+        ...messages,
+        {
+          role: "model",
+          text: "Please sign in to use the AI Shopping Assistant. I can then help with products, recommendations, and your order history.",
+        },
+      ]);
+      navigate("/login");
+      return;
+    }
+
     if (!textToSend) setInput("");
 
     // Add user message to state
@@ -58,12 +71,12 @@ export default function Chatbot() {
         text: m.text,
       }));
 
-      const response = await api.post("/ai/chat", {
+      const response = await aiService.chat({
         message: query,
         history: historyPayload,
       });
 
-      const reply = response.data?.response || "I'm sorry, I encountered an error processing that request.";
+      const reply = response?.response || "I'm sorry, I encountered an error processing that request.";
 
       saveHistory([...updatedMessages, { role: "model", text: reply }]);
     } catch (err) {

@@ -15,6 +15,9 @@ import {
   Store,
 } from "lucide-react";
 import api, { STORAGE_BASE_URL } from "../../api/axios";
+import SimpleLineChart from "../../components/charts/SimpleLineChart";
+import HorizontalBars from "../../components/charts/HorizontalBars";
+import { useAdminDashboard } from "../../hooks/useAdminDashboard";
 
 const currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 
@@ -129,6 +132,7 @@ function StatusBars({ rows }) {
 }
 
 function AdminDashboard() {
+  const adminDashboardQuery = useAdminDashboard();
   const [statsApi, setStatsApi] = useState(null);
   const [orders, setOrders] = useState([]);
   const [products, setProducts] = useState([]);
@@ -216,16 +220,23 @@ function AdminDashboard() {
     };
   }, [orders, products]);
 
+  const apiStats = adminDashboardQuery.data || statsApi;
+
   const stats = {
-    revenue: number(statsApi?.totals?.revenue ?? calculated.revenue),
-    orders: number(statsApi?.totals?.orders ?? orders.length),
-    users: number(statsApi?.totals?.users ?? users.length),
-    products: number(statsApi?.totals?.products ?? products.length),
-    categories: number(statsApi?.totals?.categories ?? categories.length),
-    avgOrder: number(statsApi?.totals?.avg_order_value ?? calculated.avgOrder),
-    chartRows: statsApi?.revenue_chart?.length ? statsApi.revenue_chart : calculated.chartRows,
-    statusRows: statsApi?.order_status?.length ? statsApi.order_status : calculated.statusRows,
-    topProducts: statsApi?.top_products?.length ? statsApi.top_products.map((product) => ({ ...product, image: getImageUrl(product) })) : calculated.topProducts,
+    revenue: number(apiStats?.totals?.revenue ?? calculated.revenue),
+    orders: number(apiStats?.totals?.orders ?? orders.length),
+    users: number(apiStats?.totals?.users ?? users.length),
+    products: number(apiStats?.totals?.products ?? products.length),
+    categories: number(apiStats?.totals?.categories ?? categories.length),
+    avgOrder: number(apiStats?.totals?.avg_order_value ?? calculated.avgOrder),
+    chartRows: apiStats?.revenue_chart?.length ? apiStats.revenue_chart : calculated.chartRows,
+    salesRows: apiStats?.sales_chart?.length ? apiStats.sales_chart : calculated.chartRows.map((row) => ({ date: row.date, sales: row.total })),
+    ordersRows: apiStats?.orders_chart || [],
+    usersRows: apiStats?.users_chart || [],
+    productsRows: apiStats?.products_chart || [],
+    sellerRevenueRows: apiStats?.seller_revenue || [],
+    statusRows: apiStats?.order_status?.length ? apiStats.order_status : calculated.statusRows,
+    topProducts: apiStats?.top_products?.length ? apiStats.top_products.map((product) => ({ ...product, image: getImageUrl(product) })) : calculated.topProducts,
   };
 
   const cards = [
@@ -425,6 +436,23 @@ function AdminDashboard() {
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="admin-analytics-grid">
+        <SimpleLineChart title="Sales" rows={stats.salesRows} valueKey="sales" color="#2563eb" />
+        <SimpleLineChart title="Orders" rows={stats.ordersRows} valueKey="count" color="#16a34a" />
+        <SimpleLineChart title="Users" rows={stats.usersRows} valueKey="count" color="#7c3aed" />
+        <SimpleLineChart title="Products" rows={stats.productsRows} valueKey="count" color="#f97316" />
+        <HorizontalBars
+          title="Seller Revenue"
+          rows={stats.sellerRevenueRows.map((row) => ({
+            seller: row.seller_name,
+            revenue: row.revenue,
+          }))}
+          labelKey="seller"
+          valueKey="revenue"
+          formatValue={money}
+        />
       </div>
 
       {/* Platform Health Section */}

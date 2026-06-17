@@ -14,7 +14,7 @@ class MessageController extends Controller
         $user = $request->user();
         
         // Ensure user is authorized (either order buyer, seller of items, or admin)
-        if ($user->id !== $order->user_id && !$this->isSellerOfOrder($user, $order) && $user->role !== 'admin') {
+        if ($user->id !== $order->user_id && !$this->isSellerOfOrder($user, $order) && $user->cannot('admin.access')) {
             return response()->json(['message' => 'Unauthorized to view this chat'], 403);
         }
 
@@ -28,7 +28,7 @@ class MessageController extends Controller
         $isSeller = $this->isSellerOfOrder($user, $order);
 
         // Ensure user is authorized to send message
-        if ($user->id !== $order->user_id && !$isSeller && $user->role !== 'admin') {
+        if ($user->id !== $order->user_id && !$isSeller && $user->cannot('admin.access')) {
             return response()->json(['message' => 'Unauthorized to send messages'], 403);
         }
 
@@ -36,7 +36,7 @@ class MessageController extends Controller
             'text' => 'required|string|max:2000',
         ]);
 
-        $sender = ($isSeller || $user->role === 'admin') ? 'seller' : 'customer';
+        $sender = ($isSeller || $user->can('admin.access')) ? 'seller' : 'customer';
 
         $message = $order->messages()->create([
             'user_id' => $user->id,
@@ -49,7 +49,7 @@ class MessageController extends Controller
 
     private function isSellerOfOrder($user, Order $order)
     {
-        if ($user->role !== 'seller') {
+        if ($user->cannot('seller.access')) {
             return false;
         }
 
