@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Bell,
   Box,
+  Archive,
+  CheckCircle,
   CircleHelp,
   Edit3,
   Filter,
@@ -10,9 +12,11 @@ import {
   Package,
   Plus,
   Search,
+  ShieldCheck,
   ShoppingCart,
   Trash2,
   TrendingUp,
+  UserX,
   Users,
   X,
 } from "lucide-react";
@@ -30,11 +34,31 @@ const getCategoryName = (product, categories) => {
 
 const getStock = (product) => Number(product?.stock ?? product?.quantity ?? product?.inventory ?? 0);
 const getStatus = (product) => {
+  const moderationStatus = String(product?.moderation_status || "").toLowerCase();
+  if (moderationStatus === "pending_review") return "pending review";
+  if (moderationStatus === "rejected") return "rejected";
   const status = String(product?.status || "").toLowerCase();
   if (status) return status;
-  return getStock(product) <= 0 ? "out of stock" : getStock(product) <= 15 ? "low stock" : "published";
+  return product?.is_active === false ? "archived" : "published";
 };
 const getSku = (product) => product?.sku || `PRD-${String(product?.id || "000").padStart(3, "0")}`;
+const getSellerName = (product) => product?.seller?.shop_name || product?.seller?.name || "No seller attached";
+const getRiskTone = (isRisk) => isRisk ? {
+  bg: "#fef2f2",
+  border: "#fecaca",
+  color: "#991b1b",
+  label: "Detected",
+} : {
+  bg: "#f0fdf4",
+  border: "#bbf7d0",
+  color: "#166534",
+  label: "Clear",
+};
+const getVerdictTone = (verdict = "review") => {
+  if (verdict === "approved") return { bg: "#f0fdf4", border: "#bbf7d0", color: "#166534", label: "Approved" };
+  if (verdict === "rejected") return { bg: "#fef2f2", border: "#fecaca", color: "#991b1b", label: "Rejected" };
+  return { bg: "#fffbeb", border: "#fde68a", color: "#92400e", label: "Flagged for Review" };
+};
 
 function AdminProducts() {
   const [products, setProducts] = useState([]);
@@ -50,6 +74,8 @@ function AdminProducts() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [checkingProductId, setCheckingProductId] = useState(null);
+  const [moderationResult, setModerationResult] = useState(null);
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState("all");
   const [page, setPage] = useState(1);
@@ -57,7 +83,7 @@ function AdminProducts() {
   const loadData = async () => {
     setError("");
     try {
-      const [productRes, categoryRes, userRes] = await Promise.allSettled([api.get("/products"), api.get("/categories"), api.get("/user")]);
+      const [productRes, categoryRes, userRes] = await Promise.allSettled([api.get("/products", { params: { include_inactive: 1 } }), api.get("/categories"), api.get("/user")]);
       if (productRes.status === "fulfilled") setProducts(unwrapList(productRes.value.data, ["products"]));
       else setError("Products API data could not be loaded.");
       if (categoryRes.status === "fulfilled") setCategories(unwrapList(categoryRes.value.data, ["categories"]));
@@ -73,7 +99,7 @@ function AdminProducts() {
   useEffect(() => { setPage(1); }, [query, tab]);
 
   const stats = useMemo(() => {
-    const active = products.filter((product) => getStock(product) > 0).length;
+    const active = products.filter((product) => product.is_active !== false).length;
     const inventoryValue = products.reduce((sum, product) => sum + Number(product.price || 0) * getStock(product), 0);
     const lowStock = products.filter((product) => getStock(product) > 0 && getStock(product) <= 15).length;
     return [
@@ -88,7 +114,7 @@ function AdminProducts() {
     const search = query.trim().toLowerCase();
     return products.filter((product) => {
       const status = getStatus(product);
-      const matchesTab = tab === "all" || status === tab || (tab === "draft" && status === "draft") || (tab === "archived" && status === "archived");
+      const matchesTab = tab === "all" || status === tab || (tab === "pending review" && status === "pending review") || (tab === "draft" && status === "draft") || (tab === "archived" && status === "archived");
       const searchable = [product?.name, product?.description, getSku(product), getCategoryName(product, categories), status].join(" ").toLowerCase();
       return matchesTab && (!search || searchable.includes(search));
     });
@@ -235,15 +261,73 @@ function AdminProducts() {
   };
 
   const handleDeleteProduct = async (id) => {
-    if (!window.confirm("Delete this product?")) return;
+    if (!window.confirm("Remove this product permanently?")) return;
     setMessage("");
     setError("");
     try {
       await api.delete(`/products/${id}`);
       setProducts((items) => items.filter((item) => item.id !== id));
-      setMessage("Product deleted successfully.");
+      if (moderationResult?.product?.id === id) setModerationResult(null);
+      setMessage("Product removed successfully.");
     } catch (err) {
-      setError(firstApiError(err, "Failed to delete product."));
+      setError(firstApiError(err, "Failed to remove product."));
+    }
+  };
+
+  const handleBanSeller = async (product) => {
+    const seller = product?.seller;
+    if (!seller?.id) {
+      setError("This product is not attached to a seller account.");
+      return;
+    }
+
+    if (!window.confirm(`Ban seller "${getSellerName(product)}" and archive their products?`)) return;
+
+    setMessage("");
+    setError("");
+    try {
+      const res = await api.post(`/users/${seller.id}/ban-seller`);
+      setProducts((items) => items.map((item) => (
+        item?.seller?.id === seller.id
+          ? { ...item, is_active: false, seller: { ...item.seller, role: "customer", seller_status: "rejected" } }
+          : item
+      )));
+      setModerationResult(null);
+      setMessage(res.data?.message || "Seller banned and products archived.");
+      await loadData();
+    } catch (err) {
+      setError(firstApiError(err, "Failed to ban seller."));
+    }
+  };
+
+  const updateProductState = (updatedProduct) => {
+    setProducts((items) => items.map((item) => item.id === updatedProduct.id ? { ...item, ...updatedProduct } : item));
+  };
+
+  const handleProductApproval = async (product, action) => {
+    setMessage("");
+    setError("");
+    try {
+      const res = await api.post(`/products/${product.id}/${action}`);
+      const updated = res.data?.product || { ...product, is_active: action === "approve" };
+      updateProductState(updated);
+      setMessage(res.data?.message || `Product ${action === "approve" ? "approved" : "archived"}.`);
+    } catch (err) {
+      setError(firstApiError(err, `Failed to ${action} product.`));
+    }
+  };
+
+  const handleAiCheck = async (product) => {
+    setCheckingProductId(product.id);
+    setMessage("");
+    setError("");
+    try {
+      const res = await api.get(`/products/${product.id}/ai-check`);
+      setModerationResult({ product, result: res.data });
+    } catch (err) {
+      setError(firstApiError(err, "AI product check failed."));
+    } finally {
+      setCheckingProductId(null);
     }
   };
 
@@ -291,7 +375,7 @@ function AdminProducts() {
         <article className="merchant-panel product-like-table product-management-card">
           <div className="product-tabs-row">
             <div className="product-tabs">
-              {[{ id: "all", label: "All Products" }, { id: "published", label: "Published" }, { id: "draft", label: "Drafts" }, { id: "archived", label: "Archived" }].map((item) => (
+              {[{ id: "all", label: "All Products" }, { id: "published", label: "Published" }, { id: "pending review", label: "Pending Review" }, { id: "rejected", label: "Rejected" }, { id: "archived", label: "Archived" }].map((item) => (
                 <button key={item.id} className={tab === item.id ? "active" : ""} onClick={() => setTab(item.id)}>{item.label}</button>
               ))}
             </div>
@@ -310,11 +394,35 @@ function AdminProducts() {
                   return (
                     <tr key={product.id}>
                       <td><div className="product-name-cell">{imageUrl ? <img src={imageUrl} alt={product.name} /> : <div className="product-empty-icon"><Box size={22} /></div>}<div><strong>{product.name}</strong><span>SKU: {getSku(product)}</span></div></div></td>
-                      <td>{getCategoryName(product, categories)}</td>
+                      <td>
+                        <strong>{getCategoryName(product, categories)}</strong>
+                        <span>{getSellerName(product)}</span>
+                      </td>
                       <td><strong>{money(product.price)}</strong></td>
                       <td><div className="inventory-cell"><span className={`inventory-bar ${stock <= 15 ? "low" : ""}`}><i style={{ width: `${stockPercent}%` }} /></span><b>{stock}</b></div></td>
-                      <td><span className={`status ${status.replaceAll(" ", "-")}`}>{status}</span></td>
-                      <td><div className="row-icon-actions"><button title="Edit" onClick={() => openEditProduct(product)}><Edit3 size={18} /></button><button title="Delete" onClick={() => handleDeleteProduct(product.id)}><Trash2 size={18} /></button></div></td>
+                      <td>
+                        <span className={`status ${status.replaceAll(" ", "-")}`}>{status}</span>
+                        {product.moderation_reason && <span>{product.moderation_reason}</span>}
+                      </td>
+                      <td>
+                        <div className="row-icon-actions">
+                          <button title="AI safety check" onClick={() => handleAiCheck(product)} disabled={checkingProductId === product.id}>
+                            <ShieldCheck size={18} />
+                          </button>
+                          {product.is_active === false ? (
+                            <button title="Approve product" onClick={() => handleProductApproval(product, "approve")}>
+                              <CheckCircle size={18} />
+                            </button>
+                          ) : (
+                            <button title="Archive product" onClick={() => handleProductApproval(product, "reject")}>
+                              <Archive size={18} />
+                            </button>
+                          )}
+                          <button title="Edit" onClick={() => openEditProduct(product)}><Edit3 size={18} /></button>
+                          <button title="Ban seller" onClick={() => handleBanSeller(product)} disabled={!product?.seller?.id || product?.seller?.role === "admin"}><UserX size={18} /></button>
+                          <button title="Remove product" onClick={() => handleDeleteProduct(product.id)}><Trash2 size={18} /></button>
+                        </div>
+                      </td>
                     </tr>
                   );
                 }) : <tr><td colSpan="6" className="empty-orders">No products found from API.</td></tr>}
@@ -389,6 +497,139 @@ function AdminProducts() {
             <label>Description<textarea value={categoryForm.description} onChange={(e) => setCategoryForm({ ...categoryForm, description: e.target.value })} rows="3" placeholder="Category description" /></label>
             <div className="modal-actions"><button type="button" className="btn-secondary" onClick={() => setShowCategoryModal(false)}>Cancel</button><button type="submit" className="btn-add-product" disabled={saving}>{saving ? "Saving..." : editingCategory ? "Save Category" : "Create Category"}</button></div>
           </form>
+        </div>
+      )}
+
+      {moderationResult && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="edit-user-modal wide-modal">
+            <div className="modal-header">
+              <div>
+                <h2>AI Product Safety Check</h2>
+                <p>{moderationResult.product.name} · Seller: {getSellerName(moderationResult.product)}</p>
+              </div>
+              <button type="button" onClick={() => setModerationResult(null)} aria-label="Close"><X size={18} /></button>
+            </div>
+
+            {(() => {
+              const result = moderationResult.result || {};
+              const verdictTone = getVerdictTone(result.verdict);
+              const fakeTone = getRiskTone(Boolean(result.is_fake));
+              const illegalTone = getRiskTone(Boolean(result.is_illegal));
+
+              return (
+                <>
+                  <div
+                    style={{
+                      background: verdictTone.bg,
+                      border: `1px solid ${verdictTone.border}`,
+                      borderRadius: 12,
+                      color: verdictTone.color,
+                      display: "flex",
+                      justifyContent: "space-between",
+                      gap: 16,
+                      marginBottom: 16,
+                      padding: "14px 16px",
+                    }}
+                  >
+                    <div>
+                      <strong style={{ display: "block", fontSize: 15 }}>AI Verdict: {verdictTone.label}</strong>
+                      <span style={{ fontSize: 13 }}>
+                        {result.is_illegal
+                          ? "This product should be rejected because it appears illegal or restricted."
+                          : result.is_fake
+                            ? "This product needs review because it may be fake or counterfeit."
+                            : "No fake/counterfeit or illegal product signal was detected."}
+                      </span>
+                    </div>
+                    <ShieldCheck size={24} />
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginBottom: 16 }}>
+                    <article style={{ background: fakeTone.bg, border: `1px solid ${fakeTone.border}`, borderRadius: 12, padding: 14 }}>
+                      <p style={{ color: "#64748b", fontSize: 12, fontWeight: 800, margin: "0 0 8px", textTransform: "uppercase" }}>
+                        Fake / Counterfeit
+                      </p>
+                      <h2 style={{ color: fakeTone.color, fontSize: 24, margin: "0 0 8px" }}>{fakeTone.label}</h2>
+                      <p style={{ color: fakeTone.color, fontSize: 13, lineHeight: 1.5, margin: 0 }}>
+                        {result.fake_reason || "No counterfeit, replica, suspicious brand, or fake-product signal found."}
+                      </p>
+                    </article>
+
+                    <article style={{ background: illegalTone.bg, border: `1px solid ${illegalTone.border}`, borderRadius: 12, padding: 14 }}>
+                      <p style={{ color: "#64748b", fontSize: 12, fontWeight: 800, margin: "0 0 8px", textTransform: "uppercase" }}>
+                        Illegal / Restricted
+                      </p>
+                      <h2 style={{ color: illegalTone.color, fontSize: 24, margin: "0 0 8px" }}>{illegalTone.label}</h2>
+                      <p style={{ color: illegalTone.color, fontSize: 13, lineHeight: 1.5, margin: 0 }}>
+                        {result.illegal_reason || "No illegal, dangerous, restricted, or prohibited item signal found."}
+                      </p>
+                    </article>
+                  </div>
+                </>
+              );
+            })()}
+
+            <div className="product-like-table-wrap">
+              <table>
+                <thead><tr><th>Check</th><th>Result</th><th>Details</th></tr></thead>
+                <tbody>
+                  {(moderationResult.result?.checklist || []).map((item) => (
+                    <tr key={item.name}>
+                      <td><strong>{item.name}</strong></td>
+                      <td><span className={`status ${item.passed ? "published" : "archived"}`}>{item.passed ? "Passed" : "Needs review"}</span></td>
+                      <td>{item.details}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {(moderationResult.result?.fake_reason || moderationResult.result?.illegal_reason) && (
+              <div className="alert alert-error">
+                {moderationResult.result.fake_reason || moderationResult.result.illegal_reason}
+              </div>
+            )}
+
+            <div className="modal-actions">
+              <button type="button" className="btn-secondary" onClick={() => setModerationResult(null)}>Close</button>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => handleDeleteProduct(moderationResult.product.id)}
+              >
+                <Trash2 size={16} /> Remove Product
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                disabled={!moderationResult.product?.seller?.id || moderationResult.product?.seller?.role === "admin"}
+                onClick={() => handleBanSeller(moderationResult.product)}
+              >
+                <UserX size={16} /> Ban Seller
+              </button>
+              <button
+                type="button"
+                className="btn-add-product"
+                onClick={() => {
+                  handleProductApproval(moderationResult.product, "approve");
+                  setModerationResult(null);
+                }}
+              >
+                Approve Product
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => {
+                  handleProductApproval(moderationResult.product, "reject");
+                  setModerationResult(null);
+                }}
+              >
+                Archive Product
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </section>

@@ -14,11 +14,41 @@ use Illuminate\Support\Facades\Cache;
 
 class ProductController extends Controller
 {
+    private function canManageProducts(Request $request): bool
+    {
+        return $request->user('sanctum')?->role === 'admin';
+    }
+
+    private function productRelations(bool $includeSeller = false): array
+    {
+        $relations = ['category', 'images'];
+
+        if ($includeSeller) {
+            $relations[] = 'seller:id,name,email,role,shop_name,seller_status';
+        }
+
+        return $relations;
+    }
+
+    private function loadProductForResponse(Product $product, bool $includeSeller = false): Product
+    {
+        return $product->load($this->productRelations($includeSeller))
+            ->loadAvg('reviews', 'rating')
+            ->loadCount('reviews');
+    }
+
     public function index(Request $request)
     {
-        $query = Product::with(['category', 'images'])
+        $isAdmin = $this->canManageProducts($request);
+        $includeInactive = $isAdmin && $request->boolean('include_inactive');
+
+        $query = Product::with($this->productRelations($includeInactive))
             ->withAvg('reviews', 'rating')
             ->withCount('reviews');
+
+        if (!$includeInactive) {
+            $query->where('is_active', true);
+        }
 
         if ($request->filled('category_id')) {
             $query->where('category_id', $request->category_id);
@@ -51,8 +81,13 @@ class ProductController extends Controller
                     DB::raw('SUM(quantity) as sold_count'),
                     DB::raw('SUM(quantity * price) as revenue')
                 )
-                ->with(['product.category', 'product.images'])
+                ->with(['product' => function ($query) {
+                    $query->with($this->productRelations())
+                        ->withAvg('reviews', 'rating')
+                        ->withCount('reviews');
+                }])
                 ->whereNotNull('product_id')
+                ->whereHas('product', fn ($query) => $query->where('is_active', true))
                 ->groupBy('product_id')
                 ->orderByDesc('sold_count')
                 ->limit(8)
@@ -72,6 +107,8 @@ class ProductController extends Controller
                         'images' => $product->images,
                         'image' => $product->primary_image_url,
                         'image_urls' => $product->image_urls,
+                        'average_rating' => $product->average_rating,
+                        'reviews_count' => $product->reviews_count,
                         'sold_count' => (int) $item->sold_count,
                         'revenue' => (float) $item->revenue,
                     ];
@@ -79,9 +116,10 @@ class ProductController extends Controller
                 ->values();
 
             if ($items->isEmpty()) {
-                $items = Product::with(['category', 'images'])
+                $items = Product::with($this->productRelations())
                     ->withAvg('reviews', 'rating')
                     ->withCount('reviews')
+                    ->where('is_active', true)
                     ->latest()
                     ->limit(8)
                     ->get()
@@ -98,6 +136,8 @@ class ProductController extends Controller
                             'images' => $product->images,
                             'image' => $product->primary_image_url,
                             'image_urls' => $product->image_urls,
+                            'average_rating' => $product->average_rating,
+                            'reviews_count' => $product->reviews_count,
                             'sold_count' => 0,
                             'revenue' => 0,
                         ];
@@ -135,6 +175,11 @@ class ProductController extends Controller
             'stock' => $request->stock,
             'tags' => $request->tags,
             'is_active' => true,
+            'moderation_status' => 'approved',
+            'moderation_is_fake' => false,
+            'moderation_is_illegal' => false,
+            'moderation_reason' => null,
+            'moderated_at' => now(),
         ]);
 
         $this->syncImages($request, $product);
@@ -143,16 +188,18 @@ class ProductController extends Controller
 
         return response()->json([
             'message' => 'Product created successfully',
-            'product' => $product->load(['category', 'images'])
-                ->loadAvg('reviews', 'rating')
-                ->loadCount('reviews'),
+            'product' => $this->loadProductForResponse($product, true),
         ], 201);
     }
 
-    public function show(Product $product)
+    public function show(Request $request, Product $product)
     {
+        if (!$product->is_active && !$this->canManageProducts($request)) {
+            abort(404);
+        }
+
         return response()->json(
-            $product->load(['category', 'images', 'reviews'])
+            $product->load(array_merge($this->productRelations($this->canManageProducts($request)), ['reviews']))
                 ->loadAvg('reviews', 'rating')
                 ->loadCount('reviews')
         );
@@ -182,6 +229,11 @@ class ProductController extends Controller
             'price' => $request->price,
             'stock' => $request->stock,
             'tags' => $request->tags,
+            'moderation_status' => 'approved',
+            'moderation_is_fake' => false,
+            'moderation_is_illegal' => false,
+            'moderation_reason' => null,
+            'moderated_at' => now(),
         ]);
 
         $this->syncImages($request, $product);
@@ -190,9 +242,7 @@ class ProductController extends Controller
 
         return response()->json([
             'message' => 'Product updated successfully',
-            'product' => $product->load(['category', 'images'])
-                ->loadAvg('reviews', 'rating')
-                ->loadCount('reviews'),
+            'product' => $this->loadProductForResponse($product, true),
         ]);
     }
 
@@ -261,6 +311,45 @@ class ProductController extends Controller
 
         return response()->json([
             'message' => 'Product deleted successfully',
+        ]);
+    }
+
+    /**
+     * Approve a product (set is_active = true)
+     */
+    public function approve(Product $product)
+    {
+        $product->update([
+            'is_active' => true,
+            'moderation_status' => 'approved',
+            'moderation_reason' => null,
+            'moderated_at' => now(),
+        ]);
+
+        Cache::forget('products:top');
+
+        return response()->json([
+            'message' => 'Product approved successfully',
+            'product' => $this->loadProductForResponse($product, true),
+        ]);
+    }
+
+    /**
+     * Reject a product (set is_active = false)
+     */
+    public function reject(Product $product)
+    {
+        $product->update([
+            'is_active' => false,
+            'moderation_status' => 'rejected',
+            'moderated_at' => now(),
+        ]);
+
+        Cache::forget('products:top');
+
+        return response()->json([
+            'message' => 'Product rejected/disabled successfully',
+            'product' => $this->loadProductForResponse($product, true),
         ]);
     }
 }

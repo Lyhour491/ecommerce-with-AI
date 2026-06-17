@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Product;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Cache;
 
 class UserController extends Controller
 {
@@ -130,6 +132,34 @@ class UserController extends Controller
         return response()->json([
             'message' => 'Seller application rejected successfully',
             'user' => $user->fresh()->loadCount('orders'),
+        ]);
+    }
+
+    public function banSeller(Request $request, User $user)
+    {
+        $this->requireAdmin($request);
+
+        if ($user->role === 'admin') {
+            return response()->json([
+                'message' => 'Admin accounts cannot be banned as sellers.',
+            ], 422);
+        }
+
+        $user->update([
+            'role' => 'customer',
+            'seller_status' => 'rejected',
+        ]);
+
+        $disabledProducts = Product::where('user_id', $user->id)
+            ->where('is_active', true)
+            ->update(['is_active' => false]);
+
+        Cache::forget('products:top');
+
+        return response()->json([
+            'message' => "Seller banned and {$disabledProducts} active product(s) archived.",
+            'user' => $user->fresh()->loadCount('orders'),
+            'disabled_products' => $disabledProducts,
         ]);
     }
 }

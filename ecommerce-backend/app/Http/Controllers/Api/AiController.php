@@ -110,7 +110,9 @@ class AiController extends Controller
         ]);
 
         $productId = $request->input('product_id');
-        $baseProduct = Product::with('category')->find($productId);
+        $baseProduct = Product::with('category')
+            ->where('is_active', true)
+            ->findOrFail($productId);
 
         $otherProducts = Product::with('category')
             ->where('id', '!=', $productId)
@@ -159,7 +161,9 @@ class AiController extends Controller
                 }
             }
 
-            $targetProduct = Product::with(['category', 'images'])->find($targetId);
+            $targetProduct = Product::with(['category', 'images'])
+                ->where('is_active', true)
+                ->find($targetId);
             if ($targetProduct) {
                 $results[] = [
                     'product' => [
@@ -252,6 +256,22 @@ class AiController extends Controller
             . "Do not write any markdown outside of the JSON block.";
 
         $aiResult = $this->geminiService->generateContent($prompt, $systemInstruction, true);
+
+        return response()->json($aiResult);
+    }
+
+    /**
+     * Moderation check for pending products
+     */
+    public function checkProduct(Product $product)
+    {
+        $aiResult = $this->geminiService->checkProductSafety([
+            'name' => $product->name,
+            'category' => $product->category?->name ?? 'General',
+            'description' => $product->description,
+            'price' => $product->price,
+            'tags' => $product->tags,
+        ]);
 
         return response()->json($aiResult);
     }

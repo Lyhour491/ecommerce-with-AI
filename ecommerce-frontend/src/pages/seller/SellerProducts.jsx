@@ -3,6 +3,15 @@ import api from "../../api/axios";
 import { money, getImageUrl, firstApiError, unwrapList } from "../../utils/store";
 import { Plus, Pencil, Trash2, X, FileEdit, Sparkles } from "lucide-react";
 
+const getSellerProductStatus = (product, stock) => {
+  if (product?.moderation_status === "pending_review") return { label: "Pending Review", className: "pending" };
+  if (product?.moderation_status === "rejected") return { label: "Rejected", className: "archived" };
+  if (product?.is_active === false) return { label: "Not Public", className: "archived" };
+  if (stock === 0) return { label: "Out of Stock", className: "out-of-stock" };
+  if (stock <= 5) return { label: "Low Stock", className: "low-stock" };
+  return { label: "Active", className: "published" };
+};
+
 export default function SellerProducts() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -10,6 +19,7 @@ export default function SellerProducts() {
   const [viewMode, setViewMode] = useState("list");
   const [editing, setEditing] = useState(null);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
 
   const emptyForm = {
@@ -94,6 +104,7 @@ export default function SellerProducts() {
     setForm({ ...emptyForm, tags: "" });
     setFiles([]);
     setError("");
+    setMessage("");
     setViewMode("add");
   };
 
@@ -111,6 +122,7 @@ export default function SellerProducts() {
     });
     setFiles([]);
     setError("");
+    setMessage("");
     setViewMode("edit");
   };
 
@@ -132,6 +144,7 @@ export default function SellerProducts() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setMessage("");
     setSaving(true);
 
     const formData = new FormData();
@@ -155,9 +168,11 @@ export default function SellerProducts() {
     try {
       if (editing) {
         formData.append("_method", "PUT");
-        await api.post(`/seller/products/${editing.id}`, formData);
+        const res = await api.post(`/seller/products/${editing.id}`, formData);
+        setMessage(res.data?.message || "Product updated successfully.");
       } else {
-        await api.post("/seller/products", formData);
+        const res = await api.post("/seller/products", formData);
+        setMessage(res.data?.message || "Product created successfully.");
       }
       setViewMode("list");
       loadProducts();
@@ -204,6 +219,7 @@ export default function SellerProducts() {
             </div>
 
             {error && <div className="alert alert-error">{error}</div>}
+            {message && <div className="alert alert-success">{message}</div>}
 
             {loading ? (
               <div className="seller-loading">Loading products...</div>
@@ -236,7 +252,7 @@ export default function SellerProducts() {
                         const stock = Number(product.stock || 0);
                         const stockPercentage = Math.min(100, (stock / 100) * 100);
                         const isLow = stock <= 5;
-                        const isOut = stock === 0;
+                        const status = getSellerProductStatus(product, stock);
 
                         return (
                           <tr key={product.id}>
@@ -270,13 +286,8 @@ export default function SellerProducts() {
                               </div>
                             </td>
                             <td>
-                              {isOut ? (
-                                <span className="status out-of-stock">Out of Stock</span>
-                              ) : isLow ? (
-                                <span className="status low-stock">Low Stock</span>
-                              ) : (
-                                <span className="status published">Active</span>
-                              )}
+                              <span className={`status ${status.className}`}>{status.label}</span>
+                              {product.moderation_reason && <span style={{ display: "block", color: "var(--muted)", fontSize: 12, marginTop: 6 }}>{product.moderation_reason}</span>}
                             </td>
                             <td>
                               <div className="row-icon-actions">

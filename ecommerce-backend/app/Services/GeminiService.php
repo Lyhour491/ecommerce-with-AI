@@ -96,12 +96,98 @@ class GeminiService
         }
     }
 
+    public function checkProductSafety(array $product): array
+    {
+        $prompt = "Product Details to Analyze:\n"
+            . "Name: '" . ($product['name'] ?? '') . "'\n"
+            . "Category: '" . ($product['category'] ?? 'General') . "'\n"
+            . "Description: '" . ($product['description'] ?? '') . "'\n"
+            . "Price: $" . ($product['price'] ?? '0') . "\n"
+            . "Tags: '" . ($product['tags'] ?? '') . "'\n\n"
+            . "Analyze this product list entry for a marketplace. Determine:\n"
+            . "1. Is this a counterfeit/fake luxury or premium brand product? (For example, if it claims to be a brand like Apple, AirPods, Nike, Rolex, but is sold under a generic name or has a suspiciously low price or claims 'replica'/'copy').\n"
+            . "2. Is this product illegal, restricted, dangerous, or violating standard marketplace policies (e.g. weapons, drugs, adult materials, hate speech, etc.)?\n"
+            . "3. What is the quality of the listing description?\n\n"
+            . "Generate a quality checklist and standard policy check verdict ('approved', 'flagged', or 'rejected').";
+
+        $systemInstruction = "You are a marketplace product safety and brand protection AI auditor. Analyze the product listing and return a valid JSON object ONLY matching this schema:\n"
+            . "{\n"
+            . "  \"is_fake\": false,\n"
+            . "  \"is_illegal\": false,\n"
+            . "  \"fake_reason\": \"Reason if fake, otherwise null\",\n"
+            . "  \"illegal_reason\": \"Reason if illegal, otherwise null\",\n"
+            . "  \"checklist\": [\n"
+            . "    { \"name\": \"Brand Authenticity\", \"passed\": true, \"details\": \"Details of analysis...\" },\n"
+            . "    { \"name\": \"Legality Check\", \"passed\": true, \"details\": \"Details of analysis...\" },\n"
+            . "    { \"name\": \"Description Quality\", \"passed\": true, \"details\": \"Details of analysis...\" }\n"
+            . "  ],\n"
+            . "  \"verdict\": \"approved\"\n"
+            . "}\n"
+            . "Do not write any markdown formatting or commentary outside of the JSON block.";
+
+        $result = $this->generateContent($prompt, $systemInstruction, true);
+
+        return is_array($result) ? $result : [
+            'is_fake' => false,
+            'is_illegal' => false,
+            'fake_reason' => null,
+            'illegal_reason' => null,
+            'checklist' => [],
+            'verdict' => 'flagged',
+        ];
+    }
+
     /**
      * Get fallback responses for developer local testing without API Key
      */
     protected function getMockResponse(string $prompt, ?string $systemInstruction, bool $responseJson)
     {
         if ($responseJson) {
+            // Check if it's the product moderation check request
+            if (str_contains(strtolower($prompt), 'analyze this product list entry') || str_contains(strtolower($prompt), 'counterfeit/fake')) {
+                $productText = strtolower(explode('analyze this product list entry', strtolower($prompt))[0]);
+                $isFake = str_contains($productText, 'headphones pro')
+                    || str_contains($productText, 'proseries wireless headphones')
+                    || str_contains($productText, 'rolex')
+                    || str_contains($productText, 'replica')
+                    || str_contains($productText, 'counterfeit');
+                $isIllegal = str_contains($productText, 'drug')
+                    || str_contains($productText, 'weapon')
+                    || str_contains($productText, 'gun')
+                    || str_contains($productText, 'marijuana');
+
+                $verdict = $isIllegal ? 'rejected' : ($isFake ? 'flagged' : 'approved');
+
+                return [
+                    'is_fake' => $isFake,
+                    'is_illegal' => $isIllegal,
+                    'fake_reason' => $isFake ? 'Potential counterfeit item: uses name resembling brand wireless products at lower price' : null,
+                    'illegal_reason' => $isIllegal ? 'Prohibited item: weapon or dangerous material detected' : null,
+                    'checklist' => [
+                        [
+                            'name' => 'Brand Authenticity',
+                            'passed' => !$isFake,
+                            'details' => $isFake
+                                ? 'The product listing name contains keywords typically associated with premium brands but is sold by a generic seller. High risk of counterfeit.'
+                                : 'No brand infringement indicators found. Product appears generic or authentic.'
+                        ],
+                        [
+                            'name' => 'Legality Check',
+                            'passed' => !$isIllegal,
+                            'details' => $isIllegal
+                                ? 'Violates marketplace safety guidelines: prohibited item class.'
+                                : 'Complies with safety policies. No illegal goods or dangerous materials identified.'
+                        ],
+                        [
+                            'name' => 'Description Quality',
+                            'passed' => true,
+                            'details' => 'The product listing description contains adequate information, formatting, and structural specs.'
+                        ]
+                    ],
+                    'verdict' => $verdict
+                ];
+            }
+
             // Check if it's the seller financial insights request
             if (str_contains(strtolower($prompt), 'financial insights') || str_contains(strtolower($prompt), 'seller insights')) {
                 return [

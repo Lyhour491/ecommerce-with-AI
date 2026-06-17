@@ -20,6 +20,11 @@ class Product extends Model
         'image',
         'tags',
         'is_active',
+        'moderation_status',
+        'moderation_is_fake',
+        'moderation_is_illegal',
+        'moderation_reason',
+        'moderated_at',
     ];
 
 
@@ -27,6 +32,9 @@ class Product extends Model
         'price' => 'decimal:2',
         'stock' => 'integer',
         'is_active' => 'boolean',
+        'moderation_is_fake' => 'boolean',
+        'moderation_is_illegal' => 'boolean',
+        'moderated_at' => 'datetime',
     ];
 
     protected $appends = ['primary_image_url', 'image_urls', 'average_rating', 'reviews_count'];

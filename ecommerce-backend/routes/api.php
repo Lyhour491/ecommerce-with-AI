@@ -54,6 +54,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/products', [ProductController::class, 'store']);
         Route::put('/products/{product}', [ProductController::class, 'update']);
         Route::delete('/products/{product}', [ProductController::class, 'destroy']);
+        Route::post('/products/{product}/approve', [ProductController::class, 'approve']);
+        Route::post('/products/{product}/reject', [ProductController::class, 'reject']);
+        Route::get('/products/{product}/ai-check', [AiController::class, 'checkProduct']);
         Route::patch('/product-images/{productImage}/primary', [ProductImageController::class, 'setPrimary']);
         Route::delete('/product-images/{productImage}', [ProductImageController::class, 'destroy']);
 
@@ -62,6 +65,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/users', [UserController::class, 'index']);
         Route::put('/users/{user}', [UserController::class, 'update']);
         Route::patch('/users/{user}/role', [UserController::class, 'updateRole']);
+        Route::post('/users/{user}/ban-seller', [UserController::class, 'banSeller']);
         Route::get('/admin/seller-applications', [UserController::class, 'getSellerApplications']);
         Route::post('/admin/seller-applications/{user}/approve', [UserController::class, 'approveSeller']);
         Route::post('/admin/seller-applications/{user}/reject', [UserController::class, 'rejectSeller']);

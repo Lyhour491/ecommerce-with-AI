@@ -25,10 +25,10 @@
   display: grid;
   gap: 20px;
 }
-@media (max-width: var(--bp-lg)) {
+@media (max-width: 1024px) {
   .grid-responsive { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
 }
-@media (max-width: var(--bp-md)) {
+@media (max-width: 768px) {
   .grid-responsive { grid-template-columns: 1fr; }
 }
 

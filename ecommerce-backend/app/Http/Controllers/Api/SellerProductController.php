@@ -5,12 +5,17 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\ProductImage;
+use App\Services\GeminiService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class SellerProductController extends Controller
 {
+    public function __construct(private GeminiService $geminiService)
+    {
+    }
+
     /**
      * List only the authenticated seller's products.
      */
@@ -44,6 +49,10 @@ class SellerProductController extends Controller
             'tags'        => 'nullable|string|max:1000',
         ]);
 
+        $categoryName = \App\Models\Category::find($request->category_id)?->name ?? 'General';
+        $moderation = $this->moderateProductInput($request, $categoryName);
+        $needsReview = $moderation['needs_review'];
+
         $product = Product::create([
             'user_id'     => $request->user()->id,
             'category_id' => $request->category_id,
@@ -53,13 +62,20 @@ class SellerProductController extends Controller
             'price'       => $request->price,
             'stock'       => $request->stock,
             'tags'        => $request->tags,
-            'is_active'   => true,
+            'is_active'   => !$needsReview,
+            'moderation_status' => $needsReview ? 'pending_review' : 'approved',
+            'moderation_is_fake' => $moderation['is_fake'],
+            'moderation_is_illegal' => $moderation['is_illegal'],
+            'moderation_reason' => $moderation['reason'],
+            'moderated_at' => now(),
         ]);
 
         $this->syncImages($request, $product);
 
         return response()->json([
-            'message' => 'Product created successfully',
+            'message' => $needsReview
+                ? 'Product saved for admin review because AI detected a possible policy issue. It is not public yet.'
+                : 'Product created successfully',
             'product' => $product->load(['category', 'images'])
                 ->loadAvg('reviews', 'rating')
                 ->loadCount('reviews'),
@@ -105,6 +121,10 @@ class SellerProductController extends Controller
             'tags'        => 'nullable|string|max:1000',
         ]);
 
+        $categoryName = \App\Models\Category::find($request->category_id)?->name ?? 'General';
+        $moderation = $this->moderateProductInput($request, $categoryName);
+        $needsReview = $moderation['needs_review'];
+
         $product->update([
             'category_id' => $request->category_id,
             'name'        => $request->name,
@@ -113,12 +133,20 @@ class SellerProductController extends Controller
             'price'       => $request->price,
             'stock'       => $request->stock,
             'tags'        => $request->tags,
+            'is_active'   => !$needsReview,
+            'moderation_status' => $needsReview ? 'pending_review' : 'approved',
+            'moderation_is_fake' => $moderation['is_fake'],
+            'moderation_is_illegal' => $moderation['is_illegal'],
+            'moderation_reason' => $moderation['reason'],
+            'moderated_at' => now(),
         ]);
 
         $this->syncImages($request, $product);
 
         return response()->json([
-            'message' => 'Product updated successfully',
+            'message' => $needsReview
+                ? 'Product updated and sent to admin review because AI detected a possible policy issue. It is not public yet.'
+                : 'Product updated successfully',
             'product' => $product->load(['category', 'images'])
                 ->loadAvg('reviews', 'rating')
                 ->loadCount('reviews'),
@@ -246,5 +274,26 @@ class SellerProductController extends Controller
 
         $firstImage = $product->images()->orderByDesc('is_primary')->orderBy('sort_order')->first();
         $product->update(['image' => $firstImage?->image_path]);
+    }
+
+    private function moderateProductInput(Request $request, string $categoryName): array
+    {
+        $result = $this->geminiService->checkProductSafety([
+            'name' => $request->name,
+            'category' => $categoryName,
+            'description' => $request->description,
+            'price' => $request->price,
+            'tags' => $request->tags,
+        ]);
+
+        $isFake = (bool) ($result['is_fake'] ?? false);
+        $isIllegal = (bool) ($result['is_illegal'] ?? false);
+
+        return [
+            'is_fake' => $isFake,
+            'is_illegal' => $isIllegal,
+            'needs_review' => $isFake || $isIllegal || (($result['verdict'] ?? 'approved') !== 'approved'),
+            'reason' => $result['illegal_reason'] ?? $result['fake_reason'] ?? null,
+        ];
     }
 }
