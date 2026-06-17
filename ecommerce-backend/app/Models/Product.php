@@ -102,17 +102,27 @@ class Product extends Model
 
     public function getAverageRatingAttribute(): float
     {
+        if (array_key_exists('reviews_avg_rating', $this->attributes)) {
+            return round((float) ($this->attributes['reviews_avg_rating'] ?? 0.0), 1);
+        }
+
         if ($this->relationLoaded('reviews')) {
             return round($this->reviews->avg('rating') ?: 0.0, 1);
         }
+
         return round($this->reviews()->avg('rating') ?: 0.0, 1);
     }
 
     public function getReviewsCountAttribute(): int
     {
+        if (array_key_exists('reviews_count', $this->attributes)) {
+            return (int) $this->attributes['reviews_count'];
+        }
+
         if ($this->relationLoaded('reviews')) {
             return $this->reviews->count();
         }
+
         return $this->reviews()->count();
     }
 }

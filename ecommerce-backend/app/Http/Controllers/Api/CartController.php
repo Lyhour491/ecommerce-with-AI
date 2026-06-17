@@ -9,9 +9,20 @@ use Illuminate\Http\Request;
 
 class CartController extends Controller
 {
+    private function cartRelations(): array
+    {
+        return [
+            'product' => function ($query) {
+                $query->with(['category', 'images'])
+                    ->withAvg('reviews', 'rating')
+                    ->withCount('reviews');
+            },
+        ];
+    }
+
     public function index(Request $request)
     {
-        $cart = Cart::with(['product.category', 'product.images'])
+        $cart = Cart::with($this->cartRelations())
             ->where('user_id', $request->user()->id)
             ->get();
 
@@ -50,7 +61,7 @@ class CartController extends Controller
 
         return response()->json([
             'message' => 'Product added to cart',
-            'cart' => $cart->load(['product.category', 'product.images'])
+            'cart' => $cart->load($this->cartRelations())
         ], 201);
     }
 
@@ -70,7 +81,7 @@ class CartController extends Controller
 
         return response()->json([
             'message' => 'Cart updated',
-            'cart' => $cart->load(['product.category', 'product.images'])
+            'cart' => $cart->load($this->cartRelations())
         ]);
     }
 

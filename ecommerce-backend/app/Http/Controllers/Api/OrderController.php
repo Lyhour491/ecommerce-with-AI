@@ -13,13 +13,25 @@ use Illuminate\Support\Facades\Cache;
 
 class OrderController extends Controller
 {
+    private function orderRelations(): array
+    {
+        return [
+            'user:id,name,email,role',
+            'orderItems.product' => function ($query) {
+                $query->with(['images', 'category'])
+                    ->withAvg('reviews', 'rating')
+                    ->withCount('reviews');
+            },
+        ];
+    }
+
     public function index(Request $request)
     {
         if (!$request->user()) {
             return response()->json(['message' => 'Unauthenticated. Please login first.'], 401);
         }
 
-        $query = Order::with(['user:id,name,email,role', 'orderItems.product.images', 'orderItems.product.category']);
+        $query = Order::with($this->orderRelations());
 
         if ($request->user()->role !== 'admin') {
             $query->where('user_id', $request->user()->id);
@@ -40,7 +52,7 @@ class OrderController extends Controller
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        return response()->json($order->load(['user:id,name,email,role', 'orderItems.product.images', 'orderItems.product.category']));
+        return response()->json($order->load($this->orderRelations()));
     }
 
     public function updateStatus(Request $request, Order $order)
@@ -67,7 +79,7 @@ class OrderController extends Controller
 
         return response()->json([
             'message' => 'Order status updated successfully',
-            'order' => $order->fresh()->load(['user:id,name,email,role', 'orderItems.product.images', 'orderItems.product.category']),
+            'order' => $order->fresh()->load($this->orderRelations()),
         ]);
     }
 
@@ -87,7 +99,7 @@ class OrderController extends Controller
 
         return response()->json([
             'message' => 'Order updated successfully',
-            'order' => $order->fresh()->load(['user:id,name,email,role', 'orderItems.product.images', 'orderItems.product.category']),
+            'order' => $order->fresh()->load($this->orderRelations()),
         ]);
     }
 
@@ -177,7 +189,7 @@ class OrderController extends Controller
 
             return response()->json([
                 'message' => 'Checkout successful. Test payment processed.',
-                'order' => $order->load(['user:id,name,email,role', 'orderItems.product.images', 'orderItems.product.category'])
+                'order' => $order->load($this->orderRelations())
             ], 201);
         });
     }

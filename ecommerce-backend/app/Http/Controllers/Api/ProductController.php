@@ -16,7 +16,9 @@ class ProductController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Product::with(['category', 'images', 'reviews']);
+        $query = Product::with(['category', 'images'])
+            ->withAvg('reviews', 'rating')
+            ->withCount('reviews');
 
         if ($request->filled('category_id')) {
             $query->where('category_id', $request->category_id);
@@ -78,6 +80,8 @@ class ProductController extends Controller
 
             if ($items->isEmpty()) {
                 $items = Product::with(['category', 'images'])
+                    ->withAvg('reviews', 'rating')
+                    ->withCount('reviews')
                     ->latest()
                     ->limit(8)
                     ->get()
@@ -139,7 +143,9 @@ class ProductController extends Controller
 
         return response()->json([
             'message' => 'Product created successfully',
-            'product' => $product->load(['category', 'images']),
+            'product' => $product->load(['category', 'images'])
+                ->loadAvg('reviews', 'rating')
+                ->loadCount('reviews'),
         ], 201);
     }
 
@@ -147,6 +153,8 @@ class ProductController extends Controller
     {
         return response()->json(
             $product->load(['category', 'images', 'reviews'])
+                ->loadAvg('reviews', 'rating')
+                ->loadCount('reviews')
         );
     }
 
@@ -182,7 +190,9 @@ class ProductController extends Controller
 
         return response()->json([
             'message' => 'Product updated successfully',
-            'product' => $product->load(['category', 'images']),
+            'product' => $product->load(['category', 'images'])
+                ->loadAvg('reviews', 'rating')
+                ->loadCount('reviews'),
         ]);
     }
 

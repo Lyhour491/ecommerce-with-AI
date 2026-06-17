@@ -17,6 +17,8 @@ class SellerProductController extends Controller
     public function index(Request $request)
     {
         $products = Product::with(['category', 'images'])
+            ->withAvg('reviews', 'rating')
+            ->withCount('reviews')
             ->where('user_id', $request->user()->id)
             ->latest()
             ->get();
@@ -58,7 +60,9 @@ class SellerProductController extends Controller
 
         return response()->json([
             'message' => 'Product created successfully',
-            'product' => $product->load(['category', 'images']),
+            'product' => $product->load(['category', 'images'])
+                ->loadAvg('reviews', 'rating')
+                ->loadCount('reviews'),
         ], 201);
     }
 
@@ -71,7 +75,11 @@ class SellerProductController extends Controller
             return response()->json(['message' => 'This product does not belong to you'], 403);
         }
 
-        return response()->json($product->load(['category', 'images']));
+        return response()->json(
+            $product->load(['category', 'images'])
+                ->loadAvg('reviews', 'rating')
+                ->loadCount('reviews')
+        );
     }
 
     /**
@@ -111,7 +119,9 @@ class SellerProductController extends Controller
 
         return response()->json([
             'message' => 'Product updated successfully',
-            'product' => $product->load(['category', 'images']),
+            'product' => $product->load(['category', 'images'])
+                ->loadAvg('reviews', 'rating')
+                ->loadCount('reviews'),
         ]);
     }
 
@@ -142,8 +152,9 @@ class SellerProductController extends Controller
     {
         $sellerId = $request->user()->id;
 
-        $totalProducts = Product::where('user_id', $sellerId)->count();
-        $totalStock = (int) Product::where('user_id', $sellerId)->sum('stock');
+        $productStats = Product::where('user_id', $sellerId)
+            ->selectRaw('COUNT(*) as total_products, COALESCE(SUM(stock), 0) as total_stock')
+            ->first();
 
         $orderItemStats = \App\Models\OrderItem::whereIn('product_id', function ($query) use ($sellerId) {
             $query->select('id')->from('products')->where('user_id', $sellerId);
@@ -155,8 +166,8 @@ class SellerProductController extends Controller
         $totalRevenue = (float) ($orderItemStats->total_revenue ?? 0);
 
         return response()->json([
-            'total_products' => $totalProducts,
-            'total_stock'    => $totalStock,
+            'total_products' => (int) ($productStats->total_products ?? 0),
+            'total_stock'    => (int) ($productStats->total_stock ?? 0),
             'total_sold'     => $totalSold,
             'total_revenue'  => round($totalRevenue, 2),
         ]);
@@ -167,11 +178,19 @@ class SellerProductController extends Controller
      */
     public function orders(Request $request)
     {
-        $productIds = Product::where('user_id', $request->user()->id)->pluck('id');
+        $sellerId = $request->user()->id;
 
-        $orders = \App\Models\Order::with(['user:id,name,email,role', 'orderItems.product.images', 'orderItems.product.category', 'messages'])
-            ->whereHas('orderItems', function ($q) use ($productIds) {
-                $q->whereIn('product_id', $productIds);
+        $orders = \App\Models\Order::with([
+            'user:id,name,email,role',
+            'messages',
+            'orderItems.product' => function ($query) {
+                $query->with(['images', 'category'])
+                    ->withAvg('reviews', 'rating')
+                    ->withCount('reviews');
+            },
+        ])
+            ->whereHas('orderItems.product', function ($q) use ($sellerId) {
+                $q->where('user_id', $sellerId);
             })
             ->latest()
             ->get();

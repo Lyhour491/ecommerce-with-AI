@@ -93,8 +93,16 @@ class PayoutController extends Controller
     public function adminIndex(Request $request)
     {
         $payouts = Payout::with('user')->orderBy('created_at', 'desc')->get();
+        $sellerIds = $payouts->pluck('user_id')->unique()->values();
 
-        $formatted = $payouts->map(function ($payout) {
+        $orderCountsBySeller = OrderItem::query()
+            ->join('products', 'order_items.product_id', '=', 'products.id')
+            ->whereIn('products.user_id', $sellerIds)
+            ->selectRaw('products.user_id as seller_id, COUNT(DISTINCT order_items.order_id) as total_orders')
+            ->groupBy('products.user_id')
+            ->pluck('total_orders', 'seller_id');
+
+        $formatted = $payouts->map(function ($payout) use ($orderCountsBySeller) {
             $sellerId = $payout->user_id;
             $sellerName = $payout->user->shop_name ?: $payout->user->name . ' Store';
             $ownerName = $payout->user->name;
@@ -104,10 +112,7 @@ class PayoutController extends Controller
             $grossSales = round($netPayout / 0.9, 2);
             $commission = round($grossSales * 0.1, 2);
 
-            // Fetch actual orders count for this seller
-            $totalOrders = OrderItem::whereIn('product_id', function ($query) use ($sellerId) {
-                $query->select('id')->from('products')->where('user_id', $sellerId);
-            })->distinct('order_id')->count('order_id');
+            $totalOrders = (int) ($orderCountsBySeller[$sellerId] ?? 0);
 
             // Format bank account preview
             $lastFour = substr($payout->account_details, -4);

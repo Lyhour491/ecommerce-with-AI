@@ -20,6 +20,8 @@ class WishlistController extends Controller
                 ->where('user_id', $request->user()->id);
         })
         ->with(['category', 'images'])
+        ->withAvg('reviews', 'rating')
+        ->withCount('reviews')
         ->where('is_active', true)
         ->get();
 
