@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { NavLink, Link, useNavigate, useLocation } from "react-router-dom";
-import { ShoppingCart, Bell, Search, User, LogOut, LayoutDashboard, Settings, Package, Store, ShieldAlert, CreditCard, MessageSquare } from "lucide-react";
+import { ShoppingCart, Bell, Search, User, LogOut, LayoutDashboard, Settings, Package, Store, ShieldAlert, CreditCard, MessageSquare, Sparkles } from "lucide-react";
+import { useMarkNotificationsRead, useNotifications } from "../hooks/useNotifications";
 
 function getStoredUser() {
   try {
@@ -10,27 +11,21 @@ function getStoredUser() {
   }
 }
 
-function getNotifications({ isAdmin, isSeller }) {
-  if (isAdmin) {
-    return [
-      { id: "admin-review", title: "Product review queue", text: "Check fake or restricted products before they go public.", time: "Now", to: "/admin/products", icon: ShieldAlert },
-      { id: "admin-orders", title: "Orders need attention", text: "Review processing and pending marketplace orders.", time: "Today", to: "/admin/orders", icon: ShoppingCart },
-      { id: "admin-sellers", title: "Seller applications", text: "Approve or reject pending seller registrations.", time: "Today", to: "/admin/customers", icon: Store },
-    ];
-  }
+const notificationIcons = {
+  ai: Sparkles,
+  cart: ShoppingCart,
+  inventory: Package,
+  order: ShoppingCart,
+  payment: CreditCard,
+  seller: Store,
+  warning: ShieldAlert,
+  info: MessageSquare,
+};
 
-  if (isSeller) {
-    return [
-      { id: "seller-orders", title: "New store activity", text: "Review recent orders and fulfillment status.", time: "Now", to: "/seller/orders", icon: ShoppingCart },
-      { id: "seller-stock", title: "Inventory watch", text: "Check low stock products before they run out.", time: "Today", to: "/seller/products", icon: Package },
-      { id: "seller-payout", title: "Payout reminder", text: "Review available balance and payout requests.", time: "This week", to: "/seller/payouts", icon: CreditCard },
-    ];
-  }
-
+function guestNotifications() {
   return [
-    { id: "buyer-orders", title: "Track your orders", text: "See delivery progress and download invoices.", time: "Today", to: "/orders", icon: Package },
-    { id: "buyer-cart", title: "Cart reminder", text: "Finish checkout before products sell out.", time: "Today", to: "/cart", icon: ShoppingCart },
-    { id: "buyer-support", title: "Need help?", text: "Message sellers from your order details.", time: "Anytime", to: "/orders", icon: MessageSquare },
+    { id: "guest-login", title: "Sign in for alerts", text: "Log in to see order, seller, and admin notifications.", time: "Now", to: "/login", type: "info", read: true },
+    { id: "guest-shopping", title: "AI shopping assistant", text: "Create an account to use personalized AI shopping help.", time: "Anytime", to: "/register", type: "ai", read: true },
   ];
 }
 
@@ -46,7 +41,11 @@ function Navbar() {
   const [searchValue, setSearchValue] = useState("");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-  const notifications = getNotifications({ isAdmin, isSeller });
+  const { data: notificationData, isLoading: isNotificationsLoading } = useNotifications();
+  const markNotificationsRead = useMarkNotificationsRead();
+  const notifications = token ? (notificationData?.notifications || []) : guestNotifications();
+  const unreadCount = token ? (notificationData?.unread_count || 0) : 0;
+  const storedUnreadCount = token ? (notificationData?.stored_unread_count || 0) : 0;
 
   // Sync search input with URL search param if present
   useEffect(() => {
@@ -138,7 +137,7 @@ function Navbar() {
               }}
             >
               <Bell size={18} />
-              {notifications.length > 0 && <span className="notification-badge">{notifications.length}</span>}
+              {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
             </button>
 
             {isNotificationsOpen && (
@@ -146,27 +145,53 @@ function Navbar() {
                 <div className="notification-menu-header">
                   <div>
                     <h4>Notifications</h4>
-                    <span>{notifications.length} store updates</span>
+                    <span>{isNotificationsLoading ? "Loading updates..." : `${notifications.length} updates`}</span>
                   </div>
-                  <button type="button" onClick={() => setIsNotificationsOpen(false)}>Close</button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (token && storedUnreadCount > 0) {
+                        markNotificationsRead.mutate("all");
+                      }
+                      setIsNotificationsOpen(false);
+                    }}
+                  >
+                    {token && storedUnreadCount > 0 ? "Mark read" : "Close"}
+                  </button>
                 </div>
 
                 <div className="notification-list">
-                  {notifications.map(({ id, title, text, time, to, icon: Icon }) => (
-                    <Link
-                      key={id}
-                      to={to}
-                      className="notification-item"
-                      onClick={() => setIsNotificationsOpen(false)}
-                    >
-                      <span className="notification-item-icon"><Icon size={16} /></span>
-                      <span className="notification-item-body">
-                        <strong>{title}</strong>
-                        <small>{text}</small>
-                      </span>
-                      <em>{time}</em>
-                    </Link>
-                  ))}
+                  {notifications.length === 0 && (
+                    <div className="notification-empty">
+                      <strong>No new notifications</strong>
+                      <small>Important account updates will appear here.</small>
+                    </div>
+                  )}
+
+                  {notifications.map(({ id, title, text, time, to, type, read }) => {
+                    const Icon = notificationIcons[type] || Bell;
+
+                    return (
+                      <Link
+                        key={id}
+                        to={to}
+                        className={`notification-item ${read ? "read" : "unread"}`}
+                        onClick={() => {
+                          if (token && !read && typeof id === "string" && id.length > 20) {
+                            markNotificationsRead.mutate(id);
+                          }
+                          setIsNotificationsOpen(false);
+                        }}
+                      >
+                        <span className="notification-item-icon"><Icon size={16} /></span>
+                        <span className="notification-item-body">
+                          <strong>{title}</strong>
+                          <small>{text}</small>
+                        </span>
+                        <em>{time}</em>
+                      </Link>
+                    );
+                  })}
                 </div>
               </div>
             )}

@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\WishlistController;
 use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\PayoutController;
 use App\Http\Controllers\Api\AdminSettingsController;
+use App\Http\Controllers\Api\NotificationController;
 
 
 Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:register');
@@ -44,6 +45,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::post('/seller/apply', [UserController::class, 'applySeller']);
     Route::patch('/orders/{order}/status', [OrderController::class, 'updateStatus']);
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::patch('/notifications/{notification}/read', [NotificationController::class, 'markAsRead']);
 
     // ── Admin routes ────────────────────────────────────────────────────
     Route::middleware('admin')->group(function () {
