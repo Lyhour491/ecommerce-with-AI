@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\MessageController;
 use App\Http\Controllers\Api\WishlistController;
 use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\PayoutController;
+use App\Http\Controllers\Api\AdminSettingsController;
 
 
 Route::post('/register', [AuthController::class, 'register']);
@@ -47,6 +48,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // ── Admin routes ────────────────────────────────────────────────────
     Route::middleware('admin')->group(function () {
         Route::get('/admin/stats', [AdminStatsController::class, 'index']);
+        Route::get('/admin/settings', [AdminSettingsController::class, 'index']);
+        Route::put('/admin/settings', [AdminSettingsController::class, 'update']);
+        Route::post('/admin/settings/reset', [AdminSettingsController::class, 'reset']);
         Route::post('/categories', [CategoryController::class, 'store']);
         Route::put('/categories/{category}', [CategoryController::class, 'update']);
         Route::delete('/categories/{category}', [CategoryController::class, 'destroy']);

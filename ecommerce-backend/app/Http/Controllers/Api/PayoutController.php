@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Payout;
 use App\Models\OrderItem;
+use App\Models\SystemSetting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -22,8 +23,8 @@ class PayoutController extends Controller
             $query->select('id')->from('products')->where('user_id', $sellerId);
         })->sum(DB::raw('quantity * price'));
 
-        // 10% marketplace commission
-        $commission = round($grossSales * 0.1, 2);
+        $commissionRate = ((float) SystemSetting::getValue('platform.commission_rate', 10)) / 100;
+        $commission = round($grossSales * $commissionRate, 2);
         $netPayout = round($grossSales - $commission, 2);
 
         // Sum of all requested payouts (pending, processing, completed)
@@ -63,7 +64,8 @@ class PayoutController extends Controller
             $query->select('id')->from('products')->where('user_id', $sellerId);
         })->sum(DB::raw('quantity * price'));
 
-        $commission = round($grossSales * 0.1, 2);
+        $commissionRate = ((float) SystemSetting::getValue('platform.commission_rate', 10)) / 100;
+        $commission = round($grossSales * $commissionRate, 2);
         $netPayout = round($grossSales - $commission, 2);
         $totalWithdrawn = (float) Payout::where('user_id', $sellerId)->sum('amount');
         $balance = max(0.00, round($netPayout - $totalWithdrawn, 2));
@@ -108,9 +110,11 @@ class PayoutController extends Controller
             $ownerName = $payout->user->name;
 
             // Back-calculate gross sales and commission for rendering
+            $commissionRate = ((float) SystemSetting::getValue('platform.commission_rate', 10)) / 100;
+            $netRate = max(0.01, 1 - $commissionRate);
             $netPayout = (float) $payout->amount;
-            $grossSales = round($netPayout / 0.9, 2);
-            $commission = round($grossSales * 0.1, 2);
+            $grossSales = round($netPayout / $netRate, 2);
+            $commission = round($grossSales * $commissionRate, 2);
 
             $totalOrders = (int) ($orderCountsBySeller[$sellerId] ?? 0);
 

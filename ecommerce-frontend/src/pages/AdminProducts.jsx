@@ -501,108 +501,118 @@ function AdminProducts() {
       )}
 
       {moderationResult && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true">
-          <div className="edit-user-modal wide-modal">
-            <div className="modal-header">
+        <div className="modal-backdrop ai-review-backdrop" role="dialog" aria-modal="true">
+          <div className="ai-review-modal">
+            <div className="modal-header ai-review-header">
               <div>
                 <h2>AI Product Safety Check</h2>
-                <p>{moderationResult.product.name} · Seller: {getSellerName(moderationResult.product)}</p>
+                <p>{moderationResult.product.name} - Seller: {getSellerName(moderationResult.product)}</p>
               </div>
               <button type="button" onClick={() => setModerationResult(null)} aria-label="Close"><X size={18} /></button>
             </div>
 
-            {(() => {
-              const result = moderationResult.result || {};
-              const verdictTone = getVerdictTone(result.verdict);
-              const fakeTone = getRiskTone(Boolean(result.is_fake));
-              const illegalTone = getRiskTone(Boolean(result.is_illegal));
+            <div className="ai-review-body">
+              {(() => {
+                const result = moderationResult.result || {};
+                const verdictTone = getVerdictTone(result.verdict);
+                const fakeTone = getRiskTone(Boolean(result.is_fake));
+                const illegalTone = getRiskTone(Boolean(result.is_illegal));
 
-              return (
-                <>
-                  <div
-                    style={{
-                      background: verdictTone.bg,
-                      border: `1px solid ${verdictTone.border}`,
-                      borderRadius: 12,
-                      color: verdictTone.color,
-                      display: "flex",
-                      justifyContent: "space-between",
-                      gap: 16,
-                      marginBottom: 16,
-                      padding: "14px 16px",
-                    }}
-                  >
-                    <div>
-                      <strong style={{ display: "block", fontSize: 15 }}>AI Verdict: {verdictTone.label}</strong>
-                      <span style={{ fontSize: 13 }}>
-                        {result.is_illegal
-                          ? "This product should be rejected because it appears illegal or restricted."
-                          : result.is_fake
-                            ? "This product needs review because it may be fake or counterfeit."
-                            : "No fake/counterfeit or illegal product signal was detected."}
-                      </span>
+                return (
+                  <>
+                    <div
+                      className="ai-verdict-banner"
+                      style={{
+                        "--verdict-bg": verdictTone.bg,
+                        "--verdict-border": verdictTone.border,
+                        "--verdict-color": verdictTone.color,
+                      }}
+                    >
+                      <div className="ai-verdict-content">
+                        <div className="ai-summary-head">
+                          <span>AI Verdict</span>
+                          <strong>{verdictTone.label}</strong>
+                        </div>
+                        <p>
+                          {result.is_illegal
+                            ? "This product should stay private until an admin confirms whether it is illegal or restricted."
+                            : result.is_fake
+                              ? "This product should stay private until an admin confirms whether it is fake or counterfeit."
+                              : "No fake/counterfeit or illegal product signal was detected."}
+                        </p>
+                      </div>
+                      <ShieldCheck size={28} />
                     </div>
-                    <ShieldCheck size={24} />
-                  </div>
 
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginBottom: 16 }}>
-                    <article style={{ background: fakeTone.bg, border: `1px solid ${fakeTone.border}`, borderRadius: 12, padding: 14 }}>
-                      <p style={{ color: "#64748b", fontSize: 12, fontWeight: 800, margin: "0 0 8px", textTransform: "uppercase" }}>
-                        Fake / Counterfeit
-                      </p>
-                      <h2 style={{ color: fakeTone.color, fontSize: 24, margin: "0 0 8px" }}>{fakeTone.label}</h2>
-                      <p style={{ color: fakeTone.color, fontSize: 13, lineHeight: 1.5, margin: 0 }}>
-                        {result.fake_reason || "No counterfeit, replica, suspicious brand, or fake-product signal found."}
-                      </p>
-                    </article>
+                    <div className="ai-risk-grid">
+                      <article
+                        className="ai-risk-card"
+                        style={{
+                          "--risk-bg": fakeTone.bg,
+                          "--risk-border": fakeTone.border,
+                          "--risk-color": fakeTone.color,
+                        }}
+                      >
+                        <div className="ai-summary-head">
+                          <span>Fake / Counterfeit</span>
+                          <strong>{fakeTone.label}</strong>
+                        </div>
+                        <p>{result.fake_reason || "No counterfeit, replica, suspicious brand, or fake-product signal found."}</p>
+                      </article>
 
-                    <article style={{ background: illegalTone.bg, border: `1px solid ${illegalTone.border}`, borderRadius: 12, padding: 14 }}>
-                      <p style={{ color: "#64748b", fontSize: 12, fontWeight: 800, margin: "0 0 8px", textTransform: "uppercase" }}>
-                        Illegal / Restricted
-                      </p>
-                      <h2 style={{ color: illegalTone.color, fontSize: 24, margin: "0 0 8px" }}>{illegalTone.label}</h2>
-                      <p style={{ color: illegalTone.color, fontSize: 13, lineHeight: 1.5, margin: 0 }}>
-                        {result.illegal_reason || "No illegal, dangerous, restricted, or prohibited item signal found."}
-                      </p>
-                    </article>
-                  </div>
-                </>
-              );
-            })()}
+                      <article
+                        className="ai-risk-card"
+                        style={{
+                          "--risk-bg": illegalTone.bg,
+                          "--risk-border": illegalTone.border,
+                          "--risk-color": illegalTone.color,
+                        }}
+                      >
+                        <div className="ai-summary-head">
+                          <span>Illegal / Restricted</span>
+                          <strong>{illegalTone.label}</strong>
+                        </div>
+                        <p>{result.illegal_reason || "No illegal, dangerous, restricted, or prohibited item signal found."}</p>
+                      </article>
+                    </div>
+                  </>
+                );
+              })()}
 
-            <div className="product-like-table-wrap">
-              <table>
-                <thead><tr><th>Check</th><th>Result</th><th>Details</th></tr></thead>
-                <tbody>
+              <section className="ai-checklist-panel">
+                <h3>Quality Checklist</h3>
+                <div className="ai-checklist-list">
                   {(moderationResult.result?.checklist || []).map((item) => (
-                    <tr key={item.name}>
-                      <td><strong>{item.name}</strong></td>
-                      <td><span className={`status ${item.passed ? "published" : "archived"}`}>{item.passed ? "Passed" : "Needs review"}</span></td>
-                      <td>{item.details}</td>
-                    </tr>
+                    <article className="ai-checklist-item" key={item.name}>
+                      <div className="ai-checklist-item-head">
+                        <strong>{item.name}</strong>
+                        <b className={`status ${item.passed ? "published" : "archived"}`}>{item.passed ? "Passed" : "Needs review"}</b>
+                      </div>
+                      <p>{item.details}</p>
+                    </article>
                   ))}
-                </tbody>
-              </table>
+                </div>
+              </section>
+
+              {(moderationResult.result?.fake_reason || moderationResult.result?.illegal_reason) && (
+                <div className="alert alert-error ai-review-alert">
+                  {moderationResult.result.fake_reason || moderationResult.result.illegal_reason}
+                </div>
+              )}
             </div>
 
-            {(moderationResult.result?.fake_reason || moderationResult.result?.illegal_reason) && (
-              <div className="alert alert-error">
-                {moderationResult.result.fake_reason || moderationResult.result.illegal_reason}
-              </div>
-            )}
-
-            <div className="modal-actions">
+            <div className="modal-actions ai-review-actions">
               <button type="button" className="btn-secondary" onClick={() => setModerationResult(null)}>Close</button>
               <button
                 type="button"
-                className="btn-secondary"
+                className="btn-secondary danger-action"
                 onClick={() => handleDeleteProduct(moderationResult.product.id)}
               >
                 <Trash2 size={16} /> Remove Product
               </button>
               <button
                 type="button"
-                className="btn-secondary"
+                className="btn-secondary danger-action"
                 disabled={!moderationResult.product?.seller?.id || moderationResult.product?.seller?.role === "admin"}
                 onClick={() => handleBanSeller(moderationResult.product)}
               >
