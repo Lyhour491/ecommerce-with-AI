@@ -4490,7 +4490,9 @@ select:focus {
 }
 
 .seller-sidebar {
-  background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%) !important;
+  background: #ffffff !important;
+  border-right: 1px solid #e8eef7;
+  box-shadow: 8px 0 24px rgba(15, 23, 42, .03) !important;
 }
 
 .seller-brand-icon {
@@ -4517,19 +4519,19 @@ select:focus {
   width: calc(100% - 32px);
   margin: 8px 16px 16px;
   padding: 12px 16px;
-  border: 1px solid rgba(255, 255, 255, .08);
+  border: 1px solid #e2e8f0;
   border-radius: 12px;
-  background: rgba(255, 255, 255, .04);
-  color: #94a3b8;
+  background: #f8fafc;
+  color: #64748b;
   font-weight: 700;
   cursor: pointer;
   transition: all .2s;
 }
 
 .seller-logout-btn:hover {
-  background: rgba(239, 68, 68, .15);
-  color: #fca5a5;
-  border-color: rgba(239, 68, 68, .2);
+  background: rgba(239, 68, 68, .08);
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, .15);
 }
 
 /* ── Navbar seller link ─────────────────────────────────────────────── */
