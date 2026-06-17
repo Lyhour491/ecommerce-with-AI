@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { NavLink, Link, useNavigate, useLocation } from "react-router-dom";
-import { ShoppingCart, Bell, Search, User, LogOut, LayoutDashboard, Settings, Package, Store } from "lucide-react";
+import { ShoppingCart, Bell, Search, User, LogOut, LayoutDashboard, Settings, Package, Store, ShieldAlert, CreditCard, MessageSquare } from "lucide-react";
 
 function getStoredUser() {
   try {
@@ -8,6 +8,30 @@ function getStoredUser() {
   } catch {
     return null;
   }
+}
+
+function getNotifications({ isAdmin, isSeller }) {
+  if (isAdmin) {
+    return [
+      { id: "admin-review", title: "Product review queue", text: "Check fake or restricted products before they go public.", time: "Now", to: "/admin/products", icon: ShieldAlert },
+      { id: "admin-orders", title: "Orders need attention", text: "Review processing and pending marketplace orders.", time: "Today", to: "/admin/orders", icon: ShoppingCart },
+      { id: "admin-sellers", title: "Seller applications", text: "Approve or reject pending seller registrations.", time: "Today", to: "/admin/customers", icon: Store },
+    ];
+  }
+
+  if (isSeller) {
+    return [
+      { id: "seller-orders", title: "New store activity", text: "Review recent orders and fulfillment status.", time: "Now", to: "/seller/orders", icon: ShoppingCart },
+      { id: "seller-stock", title: "Inventory watch", text: "Check low stock products before they run out.", time: "Today", to: "/seller/products", icon: Package },
+      { id: "seller-payout", title: "Payout reminder", text: "Review available balance and payout requests.", time: "This week", to: "/seller/payouts", icon: CreditCard },
+    ];
+  }
+
+  return [
+    { id: "buyer-orders", title: "Track your orders", text: "See delivery progress and download invoices.", time: "Today", to: "/orders", icon: Package },
+    { id: "buyer-cart", title: "Cart reminder", text: "Finish checkout before products sell out.", time: "Today", to: "/cart", icon: ShoppingCart },
+    { id: "buyer-support", title: "Need help?", text: "Message sellers from your order details.", time: "Anytime", to: "/orders", icon: MessageSquare },
+  ];
 }
 
 function Navbar() {
@@ -21,6 +45,8 @@ function Navbar() {
   
   const [searchValue, setSearchValue] = useState("");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const notifications = getNotifications({ isAdmin, isSeller });
 
   // Sync search input with URL search param if present
   useEffect(() => {
@@ -34,14 +60,17 @@ function Navbar() {
       if (!e.target.closest(".nav-user-dropdown-container")) {
         setIsMenuOpen(false);
       }
+      if (!e.target.closest(".nav-notification-container")) {
+        setIsNotificationsOpen(false);
+      }
     };
-    if (isMenuOpen) {
+    if (isMenuOpen || isNotificationsOpen) {
       window.addEventListener("click", handleOutsideClick);
     }
     return () => {
       window.removeEventListener("click", handleOutsideClick);
     };
-  }, [isMenuOpen]);
+  }, [isMenuOpen, isNotificationsOpen]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -97,10 +126,51 @@ function Navbar() {
           </Link>
 
           {/* Notification Icon */}
-          <button className="nav-icon-btn" aria-label="Notifications" type="button">
-            <Bell size={18} />
-            <span className="notification-badge"></span>
-          </button>
+          <div className="nav-notification-container">
+            <button
+              className={`nav-icon-btn ${isNotificationsOpen ? "active" : ""}`}
+              aria-label="Notifications"
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsNotificationsOpen((open) => !open);
+                setIsMenuOpen(false);
+              }}
+            >
+              <Bell size={18} />
+              {notifications.length > 0 && <span className="notification-badge">{notifications.length}</span>}
+            </button>
+
+            {isNotificationsOpen && (
+              <div className="nav-notification-menu">
+                <div className="notification-menu-header">
+                  <div>
+                    <h4>Notifications</h4>
+                    <span>{notifications.length} store updates</span>
+                  </div>
+                  <button type="button" onClick={() => setIsNotificationsOpen(false)}>Close</button>
+                </div>
+
+                <div className="notification-list">
+                  {notifications.map(({ id, title, text, time, to, icon: Icon }) => (
+                    <Link
+                      key={id}
+                      to={to}
+                      className="notification-item"
+                      onClick={() => setIsNotificationsOpen(false)}
+                    >
+                      <span className="notification-item-icon"><Icon size={16} /></span>
+                      <span className="notification-item-body">
+                        <strong>{title}</strong>
+                        <small>{text}</small>
+                      </span>
+                      <em>{time}</em>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* User Profile / Auth buttons */}
           {!token ? (
@@ -112,7 +182,10 @@ function Navbar() {
             <div className="nav-user-dropdown-container">
               <button 
                 className={`nav-user-trigger ${isMenuOpen ? "active" : ""}`}
-                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                onClick={() => {
+                  setIsMenuOpen(!isMenuOpen);
+                  setIsNotificationsOpen(false);
+                }}
                 type="button"
               >
                 <User size={15} className="user-icon-left" />

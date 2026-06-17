@@ -23,6 +23,7 @@ function Orders() {
   const [searchQuery, setSearchQuery] = useState("");
   const [cartCount, setCartCount] = useState(0);
   const [recommendations, setRecommendations] = useState([]);
+  const [downloading, setDownloading] = useState(false);
   
   // Chat state hooks
   const [showChatModal, setShowChatModal] = useState(false);
@@ -145,14 +146,336 @@ function Orders() {
     return matchesTab && matchesSearch;
   });
 
-  const handleDownloadInvoice = (order) => {
+  const handleDownloadInvoice = async (order) => {
+    // Show the invoice modal first (needed so we can render & capture it)
     setInvoiceOrder(order);
+  };
+
+  const escapeInvoiceHtml = (value) => String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll("\"", "&quot;")
+    .replaceAll("'", "&#039;");
+
+  const handleDownloadPDF = () => {
+    if (!invoiceOrder || downloading) return;
+    setDownloading(true);
+
+    const items = invoiceOrder.items || invoiceOrder.order_items || [];
+    const total = invoiceOrder.total_price || invoiceOrder.total || 0;
+    const invoiceId = String(invoiceOrder.id).padStart(3, "0");
+    const date = invoiceOrder.created_at
+      ? new Date(invoiceOrder.created_at).toLocaleDateString()
+      : "N/A";
+    const status = invoiceOrder.status || "pending";
+
+    const rowsHTML = items.map((item) => {
+      const product = item.product || {};
+      const unitPrice = Number(item.price || product.price || 0);
+      const qty = Number(item.quantity || 1);
+      const productName = escapeInvoiceHtml(product.name || "Product");
+      return `
+        <tr>
+          <td style="padding:12px 14px;font-size:14px;color:#0f172a;font-weight:700;border-bottom:1px solid #f1f5f9">${productName}</td>
+          <td style="padding:12px 14px;font-size:14px;color:#475569;text-align:center;border-bottom:1px solid #f1f5f9">${qty}</td>
+          <td style="padding:12px 14px;font-size:14px;color:#475569;text-align:right;border-bottom:1px solid #f1f5f9">$${unitPrice.toFixed(2)}</td>
+          <td style="padding:12px 14px;font-size:14px;color:#0f172a;text-align:right;font-weight:700;border-bottom:1px solid #f1f5f9">$${(unitPrice * qty).toFixed(2)}</td>
+        </tr>`;
+    }).join("");
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Invoice INV-2026-${invoiceId}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Inter, ui-sans-serif, system-ui, sans-serif; background: #fff; color: #0f172a; padding: 40px; }
+    @media print {
+      body { padding: 20px; }
+      .no-print { display: none !important; }
+    }
+    .header { display: flex; justify-content: space-between; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 24px; }
+    .brand { font-size: 22px; font-weight: 900; color: #2563eb; }
+    .invoice-label { font-size: 24px; font-weight: 800; color: #0f172a; text-align: right; }
+    .meta { font-size: 13px; color: #64748b; margin-top: 4px; line-height: 1.6; }
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 28px; }
+    .info-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #64748b; margin-bottom: 6px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+    thead tr { background: #f8fafc; border-bottom: 1px solid #cbd5e1; }
+    th { padding: 12px 14px; text-align: left; font-size: 12px; color: #475569; }
+    .totals { display: flex; flex-direction: column; gap: 8px; font-size: 14px; max-width: 260px; margin-left: auto; }
+    .totals-row { display: flex; justify-content: space-between; color: #475569; }
+    .totals-grand { display: flex; justify-content: space-between; border-top: 2px solid #cbd5e1; padding-top: 8px; font-size: 16px; font-weight: 800; color: #0f172a; }
+    .footer { border-top: 1px solid #e2e8f0; margin-top: 34px; padding-top: 16px; text-align: center; color: #94a3b8; font-size: 11px; }
+    .print-btn { display: block; margin: 0 auto 28px; padding: 10px 28px; background: #2563eb; color: #fff; border: none; border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <button class="print-btn no-print" onclick="window.print()">⬇ Save as PDF / Print</button>
+  <div class="header">
+    <div>
+      <div class="brand">MarketAI Store</div>
+      <div class="meta">123 Innovation Blvd, Suite 400<br/>Phnom Penh, Cambodia<br/>support@marketai.com</div>
+    </div>
+    <div>
+      <div class="invoice-label">INVOICE</div>
+      <div class="meta" style="text-align:right">
+        Invoice No: <strong>INV-2026-${invoiceId}</strong><br/>
+        Date: ${escapeInvoiceHtml(date)}<br/>
+        Status: <span style="text-transform:uppercase;font-weight:700;color:${status === "delivered" ? "#059669" : "#d97706"}">${escapeInvoiceHtml(status)}</span>
+      </div>
+    </div>
+  </div>
+  <div class="info-grid">
+    <div>
+      <div class="info-label">Bill To:</div>
+      <strong style="font-size:15px">${escapeInvoiceHtml(invoiceOrder.user?.name || "Customer")}</strong>
+      <div class="meta">${escapeInvoiceHtml(invoiceOrder.user?.email || "")}</div>
+    </div>
+    <div>
+      <div class="info-label">Ship To:</div>
+      <div class="meta">${escapeInvoiceHtml(invoiceOrder.shipping_address || "-")}</div>
+    </div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Product Description</th>
+        <th style="text-align:center;width:80px">Qty</th>
+        <th style="text-align:right;width:110px">Unit Price</th>
+        <th style="text-align:right;width:120px">Total</th>
+      </tr>
+    </thead>
+    <tbody>${rowsHTML}</tbody>
+  </table>
+  <div class="totals">
+    <div class="totals-row"><span>Subtotal</span><span>$${(Number(total) - Number(invoiceOrder.tax || 0) - Number(invoiceOrder.shipping_fee || 0)).toFixed(2)}</span></div>
+    <div class="totals-row"><span>Tax (8%)</span><span>$${Number(invoiceOrder.tax || 0).toFixed(2)}</span></div>
+    <div class="totals-row"><span>Shipping</span><span>${invoiceOrder.shipping_fee ? "$" + Number(invoiceOrder.shipping_fee).toFixed(2) : "Free"}</span></div>
+    <div class="totals-grand"><span>Grand Total</span><span>$${Number(total).toFixed(2)}</span></div>
+  </div>
+  <div class="footer">Thank you for your business! Questions? Contact support@marketai.com</div>
+  <script>
+    window.addEventListener("load", function() {
+      setTimeout(function() { window.print(); }, 400);
+    });
+  </script>
+</body>
+</html>`;
+
+    const blob = new Blob([html], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    const popup = window.open(url, "_blank", "width=860,height=1100");
+    if (!popup) {
+      // Fallback if popup blocked — direct navigate
+      window.open(url, "_blank");
+    }
+    setTimeout(() => {
+      URL.revokeObjectURL(url);
+      setDownloading(false);
+    }, 10000);
   };
 
   const showOrderDetails = (order) => {
     setSelectedOrder(order);
     setView("order_details");
   };
+
+  const renderInvoiceModal = () => invoiceOrder && (
+    <div style={{
+      position: "fixed",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: "rgba(15, 23, 42, 0.6)",
+      backdropFilter: "blur(6px)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      zIndex: 1000,
+      padding: 24,
+      overflowY: "auto"
+    }} className="no-print-overlay" onClick={() => setInvoiceOrder(null)}>
+      <style>{`
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+          .printable-invoice-modal-content, .printable-invoice-modal-content * {
+            visibility: visible;
+          }
+          .printable-invoice-modal-content {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            box-shadow: none !important;
+            border: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+          }
+          .no-print-overlay {
+            background: none !important;
+            backdrop-filter: none !important;
+            padding: 0 !important;
+          }
+          .invoice-actions-print {
+            display: none !important;
+          }
+        }
+      `}</style>
+
+      <div style={{
+        backgroundColor: "#ffffff",
+        borderRadius: 16,
+        width: "100%",
+        maxWidth: 680,
+        boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+        border: "1px solid #e2e8f0",
+        padding: 34,
+        position: "relative",
+        maxHeight: "90vh",
+        overflowY: "auto"
+      }} className="printable-invoice-modal-content" onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginBottom: 28 }} className="invoice-actions-print" data-html2canvas-ignore="true">
+          <button
+            onClick={handleDownloadPDF}
+            disabled={downloading}
+            className="btn btn-primary"
+            style={{ padding: "8px 16px", borderRadius: 8, display: "flex", alignItems: "center", gap: 8, opacity: downloading ? 0.7 : 1, cursor: downloading ? "not-allowed" : "pointer" }}
+          >
+            <Download size={15} />
+            <span>{downloading ? "Generating PDF..." : "Download PDF"}</span>
+          </button>
+          <button
+            onClick={() => window.print()}
+            className="btn btn-ghost"
+            style={{ padding: "8px 16px", borderRadius: 8, display: "flex", alignItems: "center", gap: 8 }}
+          >
+            <span>Print</span>
+          </button>
+          <button
+            onClick={() => setInvoiceOrder(null)}
+            className="btn btn-ghost"
+            style={{ padding: "8px 16px", borderRadius: 8 }}
+          >
+            Close
+          </button>
+        </div>
+
+        <div style={{ backgroundColor: "#ffffff", padding: "8px 0" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "2px solid #e2e8f0", paddingBottom: 20, marginBottom: 24 }}>
+            <div>
+              <h2 style={{ margin: 0, color: "var(--primary)", fontWeight: 900, letterSpacing: "-0.5px" }}>MarketAI Store</h2>
+              <p style={{ margin: "4px 0 0", color: "var(--muted)", fontSize: 13, lineHeight: 1.4 }}>
+                123 Innovation Blvd, Suite 400<br />
+                Phnom Penh, Cambodia<br />
+                support@marketai.com
+              </p>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <h1 style={{ margin: 0, fontSize: 24, color: "#0f172a", fontWeight: 800 }}>INVOICE</h1>
+              <p style={{ margin: "4px 0 0", color: "#64748b", fontSize: 13 }}>
+                Invoice No: <strong>INV-2026-{String(invoiceOrder.id).padStart(3, "0")}</strong><br />
+                Date: {invoiceOrder.created_at ? new Date(invoiceOrder.created_at).toLocaleDateString() : "N/A"}<br />
+                Status: <span style={{ textTransform: "uppercase", fontWeight: 700, color: invoiceOrder.status === 'delivered' ? '#059669' : '#d97706' }}>{invoiceOrder.status}</span>
+              </p>
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginBottom: 28 }}>
+            <div>
+              <h4 style={{ margin: "0 0 6px 0", color: "#64748b", fontSize: 11, textTransform: "uppercase", letterSpacing: "1px" }}>Bill To:</h4>
+              <strong style={{ fontSize: 15, color: "#0f172a" }}>{invoiceOrder.user?.name || "Customer Name"}</strong>
+              <p style={{ margin: "4px 0 0", color: "var(--muted)", fontSize: 13, lineHeight: 1.4 }}>
+                Email: {invoiceOrder.user?.email || "customer@example.com"}<br />
+                Phone: {invoiceOrder.phone || "N/A"}
+              </p>
+            </div>
+            <div>
+              <h4 style={{ margin: "0 0 6px 0", color: "#64748b", fontSize: 11, textTransform: "uppercase", letterSpacing: "1px" }}>Ship To:</h4>
+              <p style={{ margin: 0, color: "var(--muted)", fontSize: 13, lineHeight: 1.4 }}>
+                {invoiceOrder.shipping_address || "Shipping Destination Address"}
+              </p>
+            </div>
+          </div>
+
+          <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 24 }}>
+            <thead>
+              <tr style={{ background: "#f8fafc", borderBottom: "1px solid #cbd5e1" }}>
+                <th style={{ padding: "12px 14px", textAlign: "left", fontSize: 12, color: "#475569" }}>Product Description</th>
+                <th style={{ padding: "12px 14px", textAlign: "center", fontSize: 12, color: "#475569", width: 80 }}>Qty</th>
+                <th style={{ padding: "12px 14px", textAlign: "right", fontSize: 12, color: "#475569", width: 100 }}>Unit Price</th>
+                <th style={{ padding: "12px 14px", textAlign: "right", fontSize: 12, color: "#475569", width: 120 }}>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(invoiceOrder.items || invoiceOrder.order_items || []).map((item) => {
+                const product = item.product || {};
+                return (
+                  <tr key={item.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                    <td style={{ padding: "14px", fontSize: 14, color: "#0f172a", fontWeight: 700 }}>
+                      {product.name || "Product Name"}
+                    </td>
+                    <td style={{ padding: "14px", fontSize: 14, color: "#475569", textAlign: "center" }}>
+                      {item.quantity}
+                    </td>
+                    <td style={{ padding: "14px", fontSize: 14, color: "#475569", textAlign: "right" }}>
+                      {money(item.price || product.price)}
+                    </td>
+                    <td style={{ padding: "14px", fontSize: 14, color: "#0f172a", textAlign: "right", fontWeight: 700 }}>
+                      {money(Number(item.price || product.price) * Number(item.quantity))}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 32, alignItems: "flex-end", paddingTop: 12 }}>
+            <div style={{ textAlign: "center" }}>
+              <div style={{
+                height: 44,
+                width: "100%",
+                maxWidth: 240,
+                margin: "0 auto 6px",
+                background: "repeating-linear-gradient(90deg, #000, #000 2px, #fff 2px, #fff 8px, #000 8px, #000 12px, #fff 12px, #fff 14px, #000 14px, #000 18px)"
+              }} />
+              <span style={{ fontSize: 10, letterSpacing: 3, fontFamily: "monospace", color: "#64748b" }}>
+                *INV-{invoiceOrder.id}-{invoiceOrder.payment_reference || "REF"}*
+              </span>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 14 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", color: "#475569" }}>
+                <span>Subtotal</span>
+                <span>{money(Number(invoiceOrder.total_price || invoiceOrder.total) - Number(invoiceOrder.tax || 0) - Number(invoiceOrder.shipping_fee || 0))}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", color: "#475569" }}>
+                <span>Tax (8%)</span>
+                <span>{money(invoiceOrder.tax || 0)}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", color: "#475569" }}>
+                <span>Shipping</span>
+                <span>{invoiceOrder.shipping_fee ? money(invoiceOrder.shipping_fee) : "Free"}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", borderTop: "2px solid #cbd5e1", paddingTop: 8, fontSize: 16, fontWeight: 800, color: "#0f172a" }}>
+                <span>Grand Total</span>
+                <span>{money(invoiceOrder.total_price || invoiceOrder.total)}</span>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ borderTop: "1px solid #e2e8f0", marginTop: 34, paddingTop: 16, textAlign: "center", color: "#94a3b8", fontSize: 11 }}>
+            Thank you for your business! If you have any questions about this invoice, please contact support@marketai.com.
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   if (loading) return <div className="loading">Loading dashboard...</div>;
 
@@ -197,6 +520,7 @@ function Orders() {
     };
 
     return (
+      <>
       <main className="container" style={{ maxWidth: 1180 }}>
         <button 
           className="orders-detail-back-link" 
@@ -551,12 +875,15 @@ function Orders() {
           </div>
         )}
       </main>
+      {renderInvoiceModal()}
+      </>
     );
   }
 
   // View 2: Searchable Orders List View
   if (view === "orders_list") {
     return (
+      <>
       <main className="container" style={{ maxWidth: 1180 }}>
         <button className="dashboard-back-btn" onClick={() => setView("dashboard")}>
           <ArrowLeft size={16} />
@@ -744,6 +1071,8 @@ function Orders() {
           </section>
         )}
       </main>
+      {renderInvoiceModal()}
+      </>
     );
   }
 
@@ -1017,14 +1346,22 @@ function Orders() {
             overflowY: "auto"
           }} className="printable-invoice-modal-content" onClick={(e) => e.stopPropagation()}>
             
-            {/* Top action row */}
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginBottom: 28 }} className="invoice-actions-print">
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginBottom: 28 }} className="invoice-actions-print" data-html2canvas-ignore="true">
+              <button 
+                onClick={handleDownloadPDF}
+                disabled={downloading}
+                className="btn btn-primary"
+                style={{ padding: "8px 16px", borderRadius: 8, display: "flex", alignItems: "center", gap: 8, opacity: downloading ? 0.7 : 1, cursor: downloading ? "not-allowed" : "pointer" }}
+              >
+                <Download size={15} />
+                <span>{downloading ? "Generating PDF..." : "Download PDF"}</span>
+              </button>
               <button 
                 onClick={() => window.print()}
-                className="btn btn-primary"
+                className="btn btn-ghost"
                 style={{ padding: "8px 16px", borderRadius: 8, display: "flex", alignItems: "center", gap: 8 }}
               >
-                <span>Print Invoice</span>
+                <span>Print</span>
               </button>
               <button 
                 onClick={() => setInvoiceOrder(null)}
@@ -1035,7 +1372,8 @@ function Orders() {
               </button>
             </div>
 
-            {/* Invoice Header */}
+            {/* Invoice content wrapper — only this is captured for PDF */}
+            <div style={{ backgroundColor: "#ffffff", padding: "8px 0" }}>
             <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "2px solid #e2e8f0", paddingBottom: 20, marginBottom: 24 }}>
               <div>
                 <h2 style={{ margin: 0, color: "var(--primary)", fontWeight: 900, letterSpacing: "-0.5px" }}>MarketAI Store</h2>
@@ -1147,6 +1485,7 @@ function Orders() {
             <div style={{ borderTop: "1px solid #e2e8f0", marginTop: 34, paddingTop: 16, textAlign: "center", color: "#94a3b8", fontSize: 11 }}>
               Thank you for your business! If you have any questions about this invoice, please contact support@marketai.com.
             </div>
+            </div>{/* end invoice content wrapper */}
 
           </div>
         </div>
