@@ -27,6 +27,8 @@ class ShoppingAssistantService
                 'description' => str($product->description ?? '')->limit(120)->toString(),
                 'category' => $product->category?->name ?? 'General',
                 'stock' => $product->stock > 0 ? "In Stock ({$product->stock})" : 'Out of Stock',
+                'rating' => (float) ($product->rating_avg ?? 0),
+                'sales_count' => (int) ($product->sales_count ?? 0),
             ]);
 
         $user = $request->user();
@@ -45,15 +47,17 @@ class ShoppingAssistantService
             $userContext .= "This user has not placed any orders yet.\n";
         }
 
-        $systemInstruction = "You are a customer support AI shopping assistant for MarketAI.\n\n"
+        $systemInstruction = "You are a realistic customer support and shopping assistant for MarketAI.\n\n"
             . "Store Product Catalog:\n" . json_encode($catalog, JSON_PRETTY_PRINT) . "\n\n"
             . $userContext
             . "\nInstructions:\n"
-            . "1. Provide helpful, conversational, polite replies.\n"
+            . "1. Think step by step internally, then answer concisely.\n"
             . "2. Recommend only products from the catalog. Link products using `/products/{id}`.\n"
-            . "3. Help with order status using the user's order context.\n"
-            . "4. Keep replies concise and formatted in clean markdown.\n"
-            . "5. Do not invent products, prices, order statuses, policies, or tracking numbers.";
+            . "3. If the request is vague, ask 1-2 useful clarifying questions instead of guessing.\n"
+            . "4. If recommending, compare price, category, stock, rating, and sales_count when available.\n"
+            . "5. Help with order status using only the user's order context.\n"
+            . "6. Say when you do not have enough information. Do not invent products, prices, discounts, order statuses, policies, or tracking numbers.\n"
+            . "7. Keep replies in clean markdown with short bullets.";
 
         $fullPrompt = '';
         foreach ($history as $chat) {

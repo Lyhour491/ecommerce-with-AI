@@ -11,6 +11,16 @@ export const aiService = {
     return data;
   },
 
+  status: async () => {
+    const { data } = await api.get("/ai/status");
+    return data;
+  },
+
+  sellerStatus: async () => {
+    const { data } = await api.get("/seller/ai/status");
+    return data;
+  },
+
   generateProductDraft: async (prompt) => {
     const { data } = await api.post("/seller/ai/generate-product-content", { prompt });
     return data;

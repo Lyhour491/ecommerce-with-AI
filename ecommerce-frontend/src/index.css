@@ -9971,9 +9971,26 @@ select:focus {
   border-radius: 20px;
   padding: 24px;
   width: min(540px, 95vw);
+  max-height: min(86vh, 760px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   box-shadow: var(--shadow);
   border: 1px solid var(--border);
   animation: modalPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.ai-assistant-modal::-webkit-scrollbar {
+  width: 8px;
+}
+
+.ai-assistant-modal::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+}
+
+.ai-assistant-modal::-webkit-scrollbar-track {
+  background: #f8fafc;
+  border-radius: 999px;
 }
 
 @keyframes modalPop {
@@ -9994,6 +10011,17 @@ select:focus {
   border-radius: 12px;
   padding: 12px;
   margin-top: 10px;
+}
+
+@media (max-height: 720px) {
+  .modal-backdrop {
+    align-items: start;
+    overflow-y: auto;
+  }
+
+  .ai-assistant-modal {
+    max-height: calc(100vh - 32px);
+  }
 }
 
 /* Redesigned Add Product View */

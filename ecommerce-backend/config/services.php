@@ -50,6 +50,8 @@ return [
     'gemini' => [
         'key' => env('GEMINI_API_KEY'),
         'model' => env('GEMINI_MODEL', 'gemini-2.5-flash'),
+        'mode' => env('GEMINI_MODE', 'api'),
+        'allow_fallback' => filter_var(env('GEMINI_ALLOW_FALLBACK', false), FILTER_VALIDATE_BOOLEAN),
     ],
 
 ];

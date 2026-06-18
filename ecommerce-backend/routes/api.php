@@ -37,6 +37,7 @@ Route::get('/products/{product}/reviews', [ReviewController::class, 'index']);
 Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/ai/chat', [AiController::class, 'chat'])->middleware('throttle:ai-chat');
+    Route::get('/ai/status', [AiController::class, 'status']);
     Route::get('/ai/recommend-products', [AiController::class, 'recommendProducts']);
 
     Route::get('/user', [AuthController::class, 'user']);
@@ -92,6 +93,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/products/{product}', [SellerProductController::class, 'update']);
         Route::delete('/products/{product}', [SellerProductController::class, 'destroy']);
         Route::get('/orders', [SellerProductController::class, 'orders']);
+        Route::get('/ai/status', [AiController::class, 'status']);
         Route::post('/ai/generate-product-content', [AiController::class, 'generateProductContent']);
         Route::post('/ai/product-title', [AiController::class, 'generateProductTitle']);
         Route::post('/ai/product-description', [AiController::class, 'generateProductDescription']);

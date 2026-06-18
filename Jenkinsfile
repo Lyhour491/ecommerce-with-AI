@@ -14,6 +14,8 @@ pipeline {
         booleanParam(name: 'RUN_TESTS', defaultValue: true, description: 'Run frontend and backend tests before deployment.')
         booleanParam(name: 'RUN_SEEDERS', defaultValue: false, description: 'Run Laravel seeders after migration. Keep false for production.')
         booleanParam(name: 'REBUILD_IMAGES', defaultValue: true, description: 'Rebuild Docker images during deployment.')
+        booleanParam(name: 'CLEAN_DOCKER_CACHE', defaultValue: true, description: 'Clean unused Docker cache/images before deployment. Does not remove volumes.')
+        string(name: 'MIN_FREE_SPACE_MB', defaultValue: '4096', description: 'Minimum free disk space required on Jenkins before Docker pulls/builds.')
     }
 
     environment {
@@ -22,6 +24,11 @@ pipeline {
         DB_USERNAME = 'ecommerce_user'
         DB_PASSWORD = 'ecommerce_password'
         MYSQL_ROOT_PASS = 'root'
+        DEPLOY_APP_URL = "${params.APP_URL}"
+        DEPLOY_VITE_API_URL = "${params.VITE_API_URL}"
+        RUN_SEEDERS_FLAG = "${params.RUN_SEEDERS}"
+        REBUILD_IMAGES_FLAG = "${params.REBUILD_IMAGES}"
+        CLEAN_DOCKER_CACHE_FLAG = "${params.CLEAN_DOCKER_CACHE}"
     }
 
     stages {
@@ -48,6 +55,55 @@ pipeline {
             }
         }
 
+        stage('Free Docker Space') {
+            when {
+                expression { return params.CLEAN_DOCKER_CACHE }
+            }
+            steps {
+                sh '''
+                    set -eu
+                    echo "Disk usage before cleanup:"
+                    df -h || true
+                    docker system df || true
+
+                    docker compose down --remove-orphans || true
+                    docker container prune -f || true
+                    docker system prune -af || true
+                    docker image prune -af || true
+                    docker builder prune -af || true
+
+                    echo "Disk usage after cleanup:"
+                    df -h || true
+                    docker system df || true
+                '''
+            }
+        }
+
+        stage('Check Free Disk') {
+            steps {
+                sh '''
+                    set -eu
+                    target="/var/lib/containerd"
+                    if [ ! -d "$target" ]; then
+                        target="/var/lib/docker"
+                    fi
+                    if [ ! -d "$target" ]; then
+                        target="/"
+                    fi
+
+                    available_mb=$(df -Pm "$target" | awk 'NR==2 {print $4}')
+                    echo "Free space on $target: ${available_mb} MB"
+
+                    if [ "$available_mb" -lt "${MIN_FREE_SPACE_MB}" ]; then
+                        echo "Not enough disk for Docker deployment. Need at least ${MIN_FREE_SPACE_MB} MB free."
+                        echo "Current Docker usage:"
+                        docker system df || true
+                        exit 1
+                    fi
+                '''
+            }
+        }
+
         stage('Prepare Environment') {
             steps {
                 sh '''
@@ -67,7 +123,7 @@ pipeline {
                     cp ecommerce-backend/.env.example ecommerce-backend/.env
                     set_env ecommerce-backend/.env APP_ENV production
                     set_env ecommerce-backend/.env APP_DEBUG false
-                    set_env ecommerce-backend/.env APP_URL "${APP_URL}"
+                    set_env ecommerce-backend/.env APP_URL "${DEPLOY_APP_URL}"
                     set_env ecommerce-backend/.env DB_CONNECTION mysql
                     set_env ecommerce-backend/.env DB_HOST mysql
                     set_env ecommerce-backend/.env DB_PORT 3306
@@ -79,7 +135,7 @@ pipeline {
                     set_env ecommerce-backend/.env QUEUE_CONNECTION redis
                     set_env ecommerce-backend/.env REDIS_HOST redis
                     set_env ecommerce-backend/.env REDIS_PORT 6379
-                    set_env ecommerce-backend/.env VITE_API_URL "${VITE_API_URL}"
+                    set_env ecommerce-backend/.env VITE_API_URL "${DEPLOY_VITE_API_URL}"
 
                     if [ -n "${GEMINI_API_KEY:-}" ]; then
                         set_env ecommerce-backend/.env GEMINI_API_KEY "${GEMINI_API_KEY}"
@@ -91,7 +147,7 @@ pipeline {
                         set_env ecommerce-backend/.env GOOGLE_CLIENT_SECRET "${GOOGLE_CLIENT_SECRET}"
                     fi
 
-                    printf "VITE_API_URL=%s\\n" "${VITE_API_URL}" > ecommerce-frontend/.env
+                    printf "VITE_API_URL=%s\\n" "${DEPLOY_VITE_API_URL}" > ecommerce-frontend/.env
                 '''
             }
         }
@@ -109,7 +165,6 @@ pipeline {
             steps {
                 sh '''
                     set -eu
-                    docker compose up -d mysql redis
                     docker compose run --rm app composer install --no-interaction --prefer-dist --optimize-autoloader
                     docker run --rm -v "$PWD/ecommerce-frontend:/app" -w /app node:20-alpine npm ci
                 '''
@@ -149,11 +204,7 @@ pipeline {
             steps {
                 sh '''
                     set -eu
-                    if [ "${REBUILD_IMAGES}" = "true" ]; then
-                        docker compose up -d --build
-                    else
-                        docker compose up -d
-                    fi
+                    docker compose up -d
                 '''
             }
         }
@@ -183,7 +234,7 @@ pipeline {
 
                     docker compose exec -T app php artisan migrate --force
 
-                    if [ "${RUN_SEEDERS}" = "true" ]; then
+                    if [ "${RUN_SEEDERS_FLAG}" = "true" ]; then
                         docker compose exec -T app php artisan db:seed --force
                     fi
 
@@ -203,14 +254,14 @@ pipeline {
                 sh '''
                     set -eu
                     for i in $(seq 1 30); do
-                        if curl -fsS "${APP_URL}/api/products" >/dev/null; then
+                        if curl -fsS "${DEPLOY_APP_URL}/api/products" >/dev/null; then
                             echo "Backend API is healthy."
                             exit 0
                         fi
                         echo "Waiting for backend health check... ($i/30)"
                         sleep 2
                     done
-                    curl -fsS "${APP_URL}/api/products"
+                    curl -fsS "${DEPLOY_APP_URL}/api/products"
                 '''
             }
         }
@@ -218,7 +269,7 @@ pipeline {
 
     post {
         success {
-            echo "Deployment completed successfully: ${APP_URL}"
+            echo "Deployment completed successfully: ${params.APP_URL}"
         }
         failure {
             echo 'Deployment failed. Showing recent Docker logs.'

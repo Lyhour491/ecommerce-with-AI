@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import api from "../../api/axios";
 import { money, getImageUrl, firstApiError, unwrapList } from "../../utils/store";
 import { Plus, Pencil, Trash2, X, FileEdit, Sparkles } from "lucide-react";
+import { aiService } from "../../services/aiService";
 import { useAiProductDraft, useAiProductField } from "../../hooks/useAiProductTools";
 import { useProductCategories, useSellerProducts } from "../../hooks/useSellerProducts";
 
@@ -13,6 +14,12 @@ const getSellerProductStatus = (product, stock) => {
   if (stock <= 5) return { label: "Low Stock", className: "low-stock" };
   return { label: "Active", className: "published" };
 };
+
+const textOnly = (value = "") => String(value)
+  .replace(/<[^>]*>/g, " ")
+  .replace(/[ \t]+/g, " ")
+  .replace(/\n{3,}/g, "\n\n")
+  .trim();
 
 export default function SellerProducts() {
   const productsQuery = useSellerProducts();
@@ -45,27 +52,61 @@ export default function SellerProducts() {
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiProductName, setAiProductName] = useState("");
   const [aiFeatures, setAiFeatures] = useState("");
+  const [aiFeedback, setAiFeedback] = useState("");
   const [generatingAi, setGeneratingAi] = useState(false);
   const [aiResult, setAiResult] = useState(null);
+  const [aiStatus, setAiStatus] = useState(null);
+  const [aiError, setAiError] = useState("");
+
+  useEffect(() => {
+    if (!showAiAssist) return;
+
+    let alive = true;
+    aiService.sellerStatus()
+      .then((data) => {
+        if (alive) setAiStatus(data);
+      })
+      .catch((err) => {
+        if (alive) {
+          setAiStatus(null);
+          setAiError(firstApiError(err, "Unable to check AI API status."));
+        }
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [showAiAssist]);
 
   const buildAiPrompt = () => {
-    const name = aiProductName.trim() || form.name.trim() || "Product";
-    const features = aiFeatures.trim() || form.description.trim() || aiPrompt.trim();
+    const name = aiProductName.trim() || form.name.trim();
+    const features = aiFeatures.trim() || form.description.trim();
 
-    return `Product: ${name}\nFeatures:\n${features}\nExtra instructions: ${aiPrompt.trim()}`;
+    return `Product: ${name}\nFeatures:\n${features}\nExtra instructions: ${aiPrompt.trim()}\nSeller feedback from previous AI result: ${aiFeedback.trim()}`;
   };
+
+  const hasAiInput = () => Boolean((aiProductName.trim() || form.name.trim()) && (aiFeatures.trim() || form.description.trim() || aiPrompt.trim()));
 
   const generateAiContent = async (mode = "full") => {
     setGeneratingAi(true);
     setAiResult(null);
+    setAiError("");
     try {
+      if (!hasAiInput()) {
+        alert("Please enter a product name and at least one feature before generating.");
+        return;
+      }
+
       const prompt = buildAiPrompt();
       const data = mode === "full"
         ? await aiDraftMutation.mutateAsync(prompt)
         : await aiFieldMutation.mutateAsync({ field: mode, prompt });
       setAiResult({ mode, ...data });
     } catch (err) {
-      alert("Failed to generate content: " + (err.response?.data?.message || err.message));
+      setAiError(firstApiError(err, "Failed to generate AI content."));
+      if (err.response?.data?.ai_status) {
+        setAiStatus(err.response.data.ai_status);
+      }
     } finally {
       setGeneratingAi(false);
     }
@@ -87,7 +128,7 @@ export default function SellerProducts() {
       ...form,
       name: aiResult.name || aiResult.title || form.name,
       price: aiResult.price || form.price,
-      description: aiResult.description || form.description,
+      description: aiResult.description ? textOnly(aiResult.description) : form.description,
       category_id: matchedCatId || form.category_id,
       tags: aiResult.tags || (Array.isArray(aiResult.keywords) ? aiResult.keywords.join(", ") : form.tags),
     });
@@ -96,6 +137,7 @@ export default function SellerProducts() {
     setAiPrompt("");
     setAiProductName("");
     setAiFeatures("");
+    setAiFeedback("");
     setAiResult(null);
   };
 
@@ -540,6 +582,35 @@ export default function SellerProducts() {
               Enter a product and features. Generate the full listing, or only the title, description, or SEO keywords.
             </p>
 
+            {aiStatus && (
+              <div
+                className={`ai-api-status ${aiStatus.using_api ? "connected" : "warning"}`}
+                style={{
+                  marginBottom: 12,
+                  padding: "10px 12px",
+                  borderRadius: 8,
+                  border: "1px solid",
+                  borderColor: aiStatus.using_api ? "#bbf7d0" : "#fed7aa",
+                  background: aiStatus.using_api ? "#f0fdf4" : "#fff7ed",
+                  color: aiStatus.using_api ? "#166534" : "#9a3412",
+                  fontSize: 12,
+                  fontWeight: 700,
+                }}
+              >
+                {aiStatus.using_api
+                  ? `Gemini API connected (${aiStatus.model})`
+                  : aiStatus.mode === "mock"
+                    ? "AI is running in mock mode. Set GEMINI_MODE=api to use the real API."
+                    : "Gemini API is not connected. Add a valid GEMINI_API_KEY and clear backend config cache."}
+              </div>
+            )}
+
+            {aiError && (
+              <div className="alert alert-error" style={{ marginBottom: 12 }}>
+                {aiError}
+              </div>
+            )}
+
             <label style={{ display: "grid", gap: 6, marginBottom: 12 }}>
               <span style={{ fontSize: 12, fontWeight: 800, color: "#475569" }}>Product</span>
               <input
@@ -595,6 +666,11 @@ export default function SellerProducts() {
                   <div className="ai-suggested-field">
                     <strong style={{ display: "block", fontSize: 11, color: "#7c3aed", marginBottom: 2 }}>Suggested Price</strong>
                     <span style={{ fontSize: 14, fontWeight: "600" }}>${Number(aiResult.price || 0).toFixed(2)}</span>
+                    {aiResult.price_reason && (
+                      <small style={{ display: "block", marginTop: 6, color: "#64748b", lineHeight: 1.45 }}>
+                        {aiResult.price_reason}
+                      </small>
+                    )}
                   </div>
                 )}
                 {aiResult.category_suggestion && (
@@ -612,9 +688,31 @@ export default function SellerProducts() {
                 {aiResult.description && (
                   <div className="ai-suggested-field">
                     <strong style={{ display: "block", fontSize: 11, color: "#7c3aed", marginBottom: 2 }}>Generated Description</strong>
-                    <div style={{ fontSize: 13, maxHeight: 120, overflowY: "auto", background: "white", padding: 8, borderRadius: 6, border: "1px solid var(--border)" }} dangerouslySetInnerHTML={{ __html: aiResult.description }} />
+                    <div style={{ fontSize: 13, maxHeight: 120, overflowY: "auto", background: "white", padding: 8, borderRadius: 6, border: "1px solid var(--border)", whiteSpace: "pre-wrap" }}>
+                      {textOnly(aiResult.description)}
+                    </div>
                   </div>
                 )}
+
+                <div className="ai-suggested-field">
+                  <strong style={{ display: "block", fontSize: 11, color: "#7c3aed", marginBottom: 6 }}>Fix with Feedback</strong>
+                  <textarea
+                    rows={3}
+                    placeholder="Example: iPhone 7 is discontinued and usually used/refurbished around $45-$90. Regenerate using that market record."
+                    value={aiFeedback}
+                    onChange={(e) => setAiFeedback(e.target.value)}
+                    style={{ width: "100%", minHeight: 76, background: "white" }}
+                  />
+                  <button
+                    type="button"
+                    className="btn-ai-generate-field"
+                    style={{ marginTop: 8 }}
+                    disabled={generatingAi || !aiFeedback.trim()}
+                    onClick={() => generateAiContent(aiResult.mode || "full")}
+                  >
+                    Send Feedback to AI
+                  </button>
+                </div>
 
                 <button
                   type="button"

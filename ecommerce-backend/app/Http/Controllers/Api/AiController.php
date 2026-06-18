@@ -11,6 +11,7 @@ use App\Services\Ai\ShoppingAssistantService;
 use App\Services\GeminiService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use RuntimeException;
 
 class AiController extends Controller
 {
@@ -33,9 +34,14 @@ class AiController extends Controller
             'history.*.text' => 'required|string',
         ]);
 
-        return response()->json([
+        return $this->aiJson(fn () => [
             'response' => $this->shoppingAssistant->chat($request),
         ]);
+    }
+
+    public function status()
+    {
+        return response()->json($this->geminiService->status());
     }
 
     /**
@@ -83,8 +89,12 @@ class AiController extends Controller
             . "}\n"
             . "Do not add any additional explanations or markdown formatting outside the JSON.";
 
-        $aiResult = $this->geminiService->generateContent($prompt, $systemInstruction, true);
-        $aiResult = is_array($aiResult) ? $aiResult : [];
+        try {
+            $aiResult = $this->geminiService->generateContent($prompt, $systemInstruction, true);
+            $aiResult = is_array($aiResult) ? $aiResult : [];
+        } catch (RuntimeException $e) {
+            return $this->aiError($e);
+        }
 
         $results = [];
         $recommendations = $aiResult['recommendations'] ?? [];
@@ -129,49 +139,49 @@ class AiController extends Controller
             'prompt' => 'required|string|max:1000',
         ]);
 
-        return response()->json($this->productContent->draft($request->input('prompt')));
+        return $this->aiJson(fn () => $this->productContent->draft($request->input('prompt')));
     }
 
     public function generateProductTitle(Request $request)
     {
         $data = $request->validate(['prompt' => 'required|string|max:1000']);
 
-        return response()->json($this->productContent->title($data['prompt']));
+        return $this->aiJson(fn () => $this->productContent->title($data['prompt']));
     }
 
     public function generateProductDescription(Request $request)
     {
         $data = $request->validate(['prompt' => 'required|string|max:1000']);
 
-        return response()->json($this->productContent->description($data['prompt']));
+        return $this->aiJson(fn () => $this->productContent->description($data['prompt']));
     }
 
     public function suggestProductCategory(Request $request)
     {
         $data = $request->validate(['prompt' => 'required|string|max:1000']);
 
-        return response()->json($this->productContent->category($data['prompt']));
+        return $this->aiJson(fn () => $this->productContent->category($data['prompt']));
     }
 
     public function generateProductTags(Request $request)
     {
         $data = $request->validate(['prompt' => 'required|string|max:1000']);
 
-        return response()->json($this->productContent->tags($data['prompt']));
+        return $this->aiJson(fn () => $this->productContent->tags($data['prompt']));
     }
 
     public function generateSeoKeywords(Request $request)
     {
         $data = $request->validate(['prompt' => 'required|string|max:1000']);
 
-        return response()->json($this->productContent->seoKeywords($data['prompt']));
+        return $this->aiJson(fn () => $this->productContent->seoKeywords($data['prompt']));
     }
 
     public function suggestProductPrice(Request $request)
     {
         $data = $request->validate(['prompt' => 'required|string|max:1000']);
 
-        return response()->json($this->productContent->price($data['prompt']));
+        return $this->aiJson(fn () => $this->productContent->price($data['prompt']));
     }
 
     /**
@@ -200,7 +210,11 @@ class AiController extends Controller
 
         $lowStockCount = (clone $productsQuery)->where('stock', '<=', 5)->count();
         $views = (clone $productsQuery)->sum('views');
-        $reviewSentiment = $this->buildReviewSentiment($sellerId);
+        try {
+            $reviewSentiment = $this->buildReviewSentiment($sellerId);
+        } catch (RuntimeException $e) {
+            return $this->aiError($e);
+        }
 
         $summary = [
             'revenue' => round((float) ($orderStats->revenue ?? 0), 2),
@@ -234,7 +248,11 @@ class AiController extends Controller
             . "}\n"
             . "Do not write any markdown outside of the JSON block.";
 
-        $aiResult = $this->geminiService->generateContent($prompt, $systemInstruction, true);
+        try {
+            $aiResult = $this->geminiService->generateContent($prompt, $systemInstruction, true);
+        } catch (RuntimeException $e) {
+            return $this->aiError($e);
+        }
 
         return response()->json([
             'summary' => $summary,
@@ -245,7 +263,7 @@ class AiController extends Controller
 
     public function reviewSentiment(Request $request)
     {
-        return response()->json($this->buildReviewSentiment($request->user()->id));
+        return $this->aiJson(fn () => $this->buildReviewSentiment($request->user()->id));
     }
 
     /**
@@ -253,15 +271,30 @@ class AiController extends Controller
      */
     public function checkProduct(Product $product)
     {
-        $aiResult = $this->geminiService->checkProductSafety([
+        return $this->aiJson(fn () => $this->geminiService->checkProductSafety([
             'name' => $product->name,
             'category' => $product->category?->name ?? 'General',
             'description' => $product->description,
             'price' => $product->price,
             'tags' => $product->tags,
-        ]);
+        ]));
+    }
 
-        return response()->json($aiResult);
+    private function aiJson(callable $callback)
+    {
+        try {
+            return response()->json($callback());
+        } catch (RuntimeException $e) {
+            return $this->aiError($e);
+        }
+    }
+
+    private function aiError(RuntimeException $e)
+    {
+        return response()->json([
+            'message' => $e->getMessage(),
+            'ai_status' => $this->geminiService->status(),
+        ], 503);
     }
 
     private function buildReviewSentiment(int $sellerId): array
