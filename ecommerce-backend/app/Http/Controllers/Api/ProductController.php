@@ -91,7 +91,7 @@ class ProductController extends Controller
                     DB::raw('SUM(quantity * price) as revenue')
                 )
                 ->with(['product' => function ($query) {
-                    $query->with($this->productRelations())
+                    $query->with($this->productRelations(true))
                         ->withAvg('reviews', 'rating')
                         ->withCount('reviews');
                 }])
@@ -113,6 +113,7 @@ class ProductController extends Controller
                         'price' => (float) $product->price,
                         'stock' => (int) $product->stock,
                         'category' => $product->category,
+                        'seller' => $product->seller,
                         'images' => $product->images,
                         'image' => $product->primary_image_url,
                         'image_urls' => $product->image_urls,
@@ -125,7 +126,7 @@ class ProductController extends Controller
                 ->values();
 
             if ($items->isEmpty()) {
-                $items = Product::with($this->productRelations())
+                $items = Product::with($this->productRelations(true))
                     ->withAvg('reviews', 'rating')
                     ->withCount('reviews')
                     ->where('is_active', true)
@@ -142,6 +143,7 @@ class ProductController extends Controller
                             'price' => (float) $product->price,
                             'stock' => (int) $product->stock,
                             'category' => $product->category,
+                            'seller' => $product->seller,
                             'images' => $product->images,
                             'image' => $product->primary_image_url,
                             'image_urls' => $product->image_urls,

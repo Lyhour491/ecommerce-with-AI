@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { 
-  Bell, CircleHelp, Edit3, Filter, MoreVertical, Search, ShieldCheck, 
+  Edit3, Filter, MoreVertical, Search, ShieldCheck, 
   ShoppingBag, UserCheck, Users, X, Mail, Phone, MapPin, Clock, 
   CreditCard, Eye, CheckCircle2, XCircle, Store
 } from "lucide-react";
@@ -202,7 +202,7 @@ function AdminCustomers() {
         <h1>{tab === "applications" ? "Seller Approval" : "Customer Insights"}</h1>
         <div className="product-like-actions">
           <label className="product-like-search"><Search size={17} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search users/shops..." /></label>
-          <div className="merchant-top-actions"><Bell size={20} /><CircleHelp size={20} /><strong>{admin?.name || "Admin"}</strong></div>
+          <div className="merchant-top-actions"><strong>{admin?.name || "Admin"}</strong></div>
         </div>
       </header>
 

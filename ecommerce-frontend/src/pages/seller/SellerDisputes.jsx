@@ -8,6 +8,7 @@ import {
 
 export default function SellerDisputes() {
   const [orders, setOrders] = useState([]);
+  const [disputes, setDisputes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState("all");
@@ -18,12 +19,17 @@ export default function SellerDisputes() {
   // Load seller orders to find active chats and details
   const loadData = () => {
     setLoading(true);
-    api.get("/seller/orders")
-      .then((res) => {
-        const list = Array.isArray(res.data) ? res.data : res.data?.data || [];
-        setOrders(list);
+    Promise.allSettled([api.get("/seller/orders"), api.get("/disputes")])
+      .then(([ordersRes, disputesRes]) => {
+        if (ordersRes.status === "fulfilled") {
+          const list = Array.isArray(ordersRes.value.data) ? ordersRes.value.data : ordersRes.value.data?.data || [];
+          setOrders(list);
+        }
+        if (disputesRes.status === "fulfilled") {
+          const list = Array.isArray(disputesRes.value.data) ? disputesRes.value.data : disputesRes.value.data?.data || [];
+          setDisputes(list);
+        }
       })
-      .catch((err) => console.error("Failed to load seller orders", err))
       .finally(() => setLoading(false));
   };
 
@@ -59,71 +65,37 @@ export default function SellerDisputes() {
       .catch((err) => console.error("Failed to send message", err));
   };
 
-  // Build list of disputes/inquiries
+  // Build list of disputes/inquiries from database records only.
   const disputesList = useMemo(() => {
-    // 1. Mock disputes (fallbacks if no actual data or to show platform functionality)
-    const mockDisputes = [
-      {
-        id: "DSP-301",
-        orderId: 9991,
-        customerName: "John Doe",
-        orderNumber: "ORD-2026-991",
-        reason: "Defective item screen",
-        amount: 129.99,
-        status: "pending",
-        date: "06/12/2026",
-        isMock: true,
-        mockMessages: [
-          { sender: "customer", text: "Hi, the watch screen is scratched." },
-          { sender: "seller", text: "We are sorry to hear that. Could you send a photo?" }
-        ]
-      },
-      {
-        id: "DSP-302",
-        orderId: 9992,
-        customerName: "Jane Smith",
-        orderNumber: "ORD-2026-992",
-        reason: "Item not received",
-        amount: 89.00,
-        status: "resolved",
-        date: "06/10/2026",
-        isMock: true,
-        mockMessages: [
-          { sender: "customer", text: "Has this been shipped yet?" },
-          { sender: "seller", text: "Yes, it was delivered yesterday." },
-          { sender: "customer", text: "Ah, found it in the mailbox. Thank you!" }
-        ]
-      }
-    ];
+    const disputeRows = disputes.map((dispute) => ({
+      id: dispute.display_id || `DSP-${String(dispute.id).padStart(4, "0")}`,
+      orderId: dispute.order_id,
+      customerName: dispute.customer_name || "Customer",
+      orderNumber: dispute.order_number || `ORD-${String(dispute.order_id).padStart(6, "0")}`,
+      reason: dispute.reason || "General dispute",
+      amount: Number(dispute.amount || 0),
+      status: dispute.status || "pending",
+      date: dispute.date || (dispute.created_at ? new Date(dispute.created_at).toLocaleDateString() : "-"),
+    }));
 
-    // 2. Real orders with chats or marked as dispute
-    const realDisputes = orders.map((order) => {
+    const inquiryRows = orders.map((order) => {
       const messages = order.messages || [];
-      const hasChat = messages.length > 0;
-
-      // Only return if it has a chat session (or we can return all as potential inquiries)
-      if (!hasChat) return null;
-
+      if (!messages.length) return null;
       const items = order.order_items || [];
-      const orderTotal = Number(order.total_price || 0);
-      const formattedOrderNumber = `ORD-2026-${String(order.id).padStart(3, "0")}`;
-
       return {
-        id: `DSP-REAL-${order.id}`,
+        id: `INQ-${String(order.id).padStart(4, "0")}`,
         orderId: order.id,
         customerName: order.user?.name || "Customer",
-        orderNumber: formattedOrderNumber,
+        orderNumber: `ORD-${String(order.id).padStart(6, "0")}`,
         reason: items[0]?.product?.name ? `Inquiry about ${items[0].product.name}` : "General Inquiry",
-        amount: orderTotal,
+        amount: Number(order.total_price || 0),
         status: order.status === "cancelled" ? "resolved" : "pending",
         date: new Date(order.created_at).toLocaleDateString(),
-        isMock: false
       };
     }).filter(Boolean);
 
-    // Combine them
-    return [...realDisputes, ...mockDisputes];
-  }, [orders, chatTrigger]);
+    return [...disputeRows, ...inquiryRows];
+  }, [orders, disputes]);
 
   // Filters & searches
   const filteredDisputes = useMemo(() => {
@@ -157,11 +129,7 @@ export default function SellerDisputes() {
 
   // Active chat session messages
   const activeMessages = selectedChatOrder ? (
-    selectedChatOrder.isMock 
-      ? selectedChatOrder.mockMessages 
-      : (chatMessages.length > 0 ? chatMessages : [
-          { sender: "seller", text: "Hello! Thank you for purchasing from our store. We're here to help you with any questions about your order." }
-        ])
+    chatMessages.length > 0 ? chatMessages : []
   ) : [];
 
   return (
@@ -374,13 +342,7 @@ export default function SellerDisputes() {
                 onChange={(e) => setChatInput(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
-                    if (selectedChatOrder.isMock) {
-                      selectedChatOrder.mockMessages.push({ sender: "seller", text: chatInput });
-                      setChatInput("");
-                      setChatTrigger(t => t + 1);
-                    } else {
-                      handleSendMessage(selectedChatOrder.orderId);
-                    }
+                    handleSendMessage(selectedChatOrder.orderId);
                   }
                 }}
                 style={{
@@ -394,13 +356,7 @@ export default function SellerDisputes() {
               />
               <button 
                 onClick={() => {
-                  if (selectedChatOrder.isMock) {
-                    selectedChatOrder.mockMessages.push({ sender: "seller", text: chatInput });
-                    setChatInput("");
-                    setChatTrigger(t => t + 1);
-                  } else {
-                    handleSendMessage(selectedChatOrder.orderId);
-                  }
+                  handleSendMessage(selectedChatOrder.orderId);
                 }}
                 className="orders-btn-primary"
                 style={{ padding: "10px 16px", borderRadius: 8, height: "auto", display: "flex", alignItems: "center", gap: 6 }}

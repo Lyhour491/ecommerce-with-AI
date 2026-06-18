@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { 
   Clock, DollarSign, CheckCircle2, TrendingUp, Search, Calendar, 
-  CreditCard, ShieldCheck, HelpCircle, Bell, Eye, Wallet, XCircle, X, Download
+  CreditCard, ShieldCheck, Eye, Wallet, XCircle, X, Download
 } from "lucide-react";
 import { money } from "../../utils/store";
 import api from "../../api/axios";
@@ -232,8 +232,7 @@ export default function AdminPayouts() {
     const completed = payouts.filter((p) => p.status === "completed");
     const pendingAmount = pending.reduce((sum, p) => sum + p.netPayout, 0);
     
-    // Static base commission + dynamic commission calculation for accuracy
-    const totalCommission = payouts.reduce((sum, p) => sum + p.commission, 0) + 1092; // baseline offset to match mockup stat ($3,736)
+    const totalCommission = payouts.reduce((sum, p) => sum + p.commission, 0);
 
     return {
       pendingCount: pending.length,
@@ -273,8 +272,6 @@ export default function AdminPayouts() {
             />
           </label>
           <div className="merchant-top-actions">
-            <Bell size={20} />
-            <HelpCircle size={20} />
             <strong>{admin.name}</strong>
           </div>
         </div>

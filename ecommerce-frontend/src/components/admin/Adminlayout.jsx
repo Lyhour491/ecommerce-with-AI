@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   Package,
@@ -8,9 +8,18 @@ import {
   Store,
   DollarSign,
   AlertTriangle,
+  LogOut,
 } from "lucide-react";
+import { authStore } from "../../store/authStore";
 
 export default function AdminLayout() {
+  const navigate = useNavigate();
+
+  const logout = () => {
+    authStore.logout();
+    navigate("/login", { replace: true });
+  };
+
   return (
     <div className="admin-shell merchant-admin-shell">
       <aside className="merchant-sidebar">
@@ -42,6 +51,10 @@ export default function AdminLayout() {
             <span>Store Owner</span>
           </div>
         </div>
+        <button type="button" className="admin-logout-btn" onClick={logout}>
+          <LogOut size={18} />
+          <span>Logout</span>
+        </button>
       </aside>
 
       <div className="merchant-main"><Outlet /></div>

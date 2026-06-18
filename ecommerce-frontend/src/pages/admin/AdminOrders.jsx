@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  Bell,
-  CircleHelp,
   Clock,
   Edit3,
   Filter,
@@ -101,22 +99,6 @@ function AdminOrders() {
 
   useEffect(() => { setPage(1); }, [query, tab]);
 
-  const updateStatus = async (order, status) => {
-    setSavingId(order.id);
-    setMessage("");
-    setError("");
-    try {
-      const response = await api.patch(`/orders/${order.id}/status`, { status });
-      const updated = response.data?.order || response.data?.data || { ...order, status };
-      setOrders((items) => items.map((item) => item.id === order.id ? { ...item, ...updated, status } : item));
-      setMessage(`Order #${order.id} status updated to ${status}.`);
-    } catch (err) {
-      setError(err?.response?.data?.message || "Failed to update order status.");
-    } finally {
-      setSavingId(null);
-    }
-  };
-
   const openEditOrder = (order) => {
     setEditingOrder(order);
     setOrderForm({
@@ -158,7 +140,7 @@ function AdminOrders() {
         <h1>Order Management</h1>
         <div className="product-like-actions">
           <label className="product-like-search"><Search size={17} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search orders..." /></label>
-          <div className="merchant-top-actions"><Bell size={20} /><CircleHelp size={20} /><strong>{admin?.name || "Admin"}</strong><span className="mini-profile">{(admin?.name || "A").charAt(0).toUpperCase()}</span></div>
+          <div className="merchant-top-actions"><strong>{admin?.name || "Admin"}</strong><span className="mini-profile">{(admin?.name || "A").charAt(0).toUpperCase()}</span></div>
         </div>
       </header>
 
@@ -217,7 +199,7 @@ function AdminOrders() {
                       <td><strong>{currency.format(getTotal(order))}</strong></td>
                       <td>{order.phone || "N/A"}</td>
                       <td className="address-cell"><Truck size={15} />{order.shipping_address || "N/A"}</td>
-                      <td><select className={`status status-select ${status}`} value={status} disabled={savingId === order.id} onChange={(e) => updateStatus(order, e.target.value)}><option value="pending">pending</option><option value="processing">processing</option><option value="shipped">shipped</option><option value="delivered">delivered</option><option value="cancelled">cancelled</option></select></td>
+                      <td><span className={`status ${status}`}>{status}</span></td>
                       <td>{getDate(order)}</td>
                       <td><button className="edit-user-btn" type="button" onClick={() => openEditOrder(order)} disabled={savingId === order.id}><Edit3 size={16} /> Edit</button></td>
                     </tr>

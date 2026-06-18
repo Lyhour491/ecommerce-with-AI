@@ -69,6 +69,7 @@ const getImageUrl = (product) => {
 
 const money = (value) => currency.format(Number(value || 0));
 const number = (value) => Number(value || 0);
+const formatTrend = (value) => `${number(value) >= 0 ? "+" : ""}${number(value).toFixed(1)}%`;
 const orderItems = (order) => order?.order_items || order?.orderItems || order?.items || [];
 const orderTotal = (order) => number(order?.total_price ?? order?.total ?? order?.total_amount ?? order?.grand_total);
 const customerName = (order) => order?.user?.name || order?.customer?.name || order?.customer_name || `User #${order?.user_id || "-"}`;
@@ -235,9 +236,21 @@ function AdminDashboard() {
     usersRows: apiStats?.users_chart || [],
     productsRows: apiStats?.products_chart || [],
     sellerRevenueRows: apiStats?.seller_revenue || [],
+    recentActivity: apiStats?.recent_activity || [],
+    platformHealth: apiStats?.platform_health || {},
+    trends: apiStats?.trends || {},
     statusRows: apiStats?.order_status?.length ? apiStats.order_status : calculated.statusRows,
     topProducts: apiStats?.top_products?.length ? apiStats.top_products.map((product) => ({ ...product, image: getImageUrl(product) })) : calculated.topProducts,
   };
+
+  const activeSellers = number(apiStats?.totals?.active_sellers);
+  const pendingSellers = number(apiStats?.totals?.pending_sellers);
+  const pendingProducts = number(apiStats?.totals?.pending_products);
+  const activeDisputes = number(apiStats?.totals?.active_disputes);
+  const pendingPayouts = number(apiStats?.totals?.pending_payouts);
+  const totalSellers = number(stats.platformHealth.total_sellers);
+  const productApprovalRate = number(stats.platformHealth.product_approval_rate);
+  const customerSatisfaction = number(stats.platformHealth.customer_satisfaction);
 
   const cards = [
     { label: "Total Revenue", value: money(stats.revenue), note: `${stats.orders} orders`, icon: DollarSign, className: "blue" },
@@ -268,10 +281,10 @@ function AdminDashboard() {
         <div className="admin-metric-card">
           <div className="card-top-row">
             <span className="card-icon-round"><DollarSign size={20} /></span>
-            <span className="trend-badge"><TrendingUp size={12} /> +12.5%</span>
+            <span className="trend-badge"><TrendingUp size={12} /> {formatTrend(stats.trends.revenue)}</span>
           </div>
           <div className="card-middle-row">
-            <h2>{money(stats.revenue || 62.00)}</h2>
+            <h2>{money(stats.revenue)}</h2>
             <p>Platform Revenue</p>
           </div>
         </div>
@@ -280,10 +293,10 @@ function AdminDashboard() {
         <div className="admin-metric-card">
           <div className="card-top-row">
             <span className="card-icon-round"><ShoppingCart size={20} /></span>
-            <span className="trend-badge"><TrendingUp size={12} /> +8.3%</span>
+            <span className="trend-badge"><TrendingUp size={12} /> {formatTrend(stats.trends.orders)}</span>
           </div>
           <div className="card-middle-row">
-            <h2>{stats.orders || 2}</h2>
+            <h2>{stats.orders}</h2>
             <p>Total Orders</p>
           </div>
         </div>
@@ -292,10 +305,10 @@ function AdminDashboard() {
         <div className="admin-metric-card">
           <div className="card-top-row">
             <span className="card-icon-round"><Users size={20} /></span>
-            <span className="trend-badge"><TrendingUp size={12} /> +15.7%</span>
+            <span className="trend-badge"><TrendingUp size={12} /> {formatTrend(stats.trends.users)}</span>
           </div>
           <div className="card-middle-row">
-            <h2>{stats.users > 5 ? stats.users : 1248}</h2>
+            <h2>{stats.users}</h2>
             <p>Total Users</p>
           </div>
         </div>
@@ -304,10 +317,10 @@ function AdminDashboard() {
         <div className="admin-metric-card">
           <div className="card-top-row">
             <span className="card-icon-round"><Store size={20} /></span>
-            <span className="trend-badge"><TrendingUp size={12} /> +5.2%</span>
+            <span className="trend-badge"><TrendingUp size={12} /> {formatTrend(stats.trends.active_sellers)}</span>
           </div>
           <div className="card-middle-row">
-            <h2>{users.filter(u => u.role === 'seller').length || 42}</h2>
+            <h2>{activeSellers}</h2>
             <p>Active Sellers</p>
           </div>
         </div>
@@ -317,7 +330,7 @@ function AdminDashboard() {
           <div className="action-card-main">
             <div className="action-card-left">
               <span className="action-label">Pending Sellers</span>
-              <h2 className="action-value">{users.filter(u => u.seller_status === 'pending').length || 4}</h2>
+              <h2 className="action-value">{pendingSellers}</h2>
             </div>
             <span className="action-icon-box yellow-bg"><Clock size={20} /></span>
           </div>
@@ -329,7 +342,7 @@ function AdminDashboard() {
           <div className="action-card-main">
             <div className="action-card-left">
               <span className="action-label">Pending Products</span>
-              <h2 className="action-value">{products.filter(p => !p.is_active).length || 8}</h2>
+              <h2 className="action-value">{pendingProducts}</h2>
             </div>
             <span className="action-icon-box blue-bg"><Package size={20} /></span>
           </div>
@@ -341,7 +354,7 @@ function AdminDashboard() {
           <div className="action-card-main">
             <div className="action-card-left">
               <span className="action-label">Active Disputes</span>
-              <h2 className="action-value">3</h2>
+              <h2 className="action-value">{activeDisputes}</h2>
             </div>
             <span className="action-icon-box red-bg"><AlertCircle size={20} /></span>
           </div>
@@ -353,7 +366,7 @@ function AdminDashboard() {
           <div className="action-card-main">
             <div className="action-card-left">
               <span className="action-label">Pending Payouts</span>
-              <h2 className="action-value">$20.1K</h2>
+              <h2 className="action-value">{money(pendingPayouts)}</h2>
             </div>
             <span className="action-icon-box green-bg"><DollarSign size={20} /></span>
           </div>
@@ -370,27 +383,21 @@ function AdminDashboard() {
             <Link to="/admin/orders" className="column-header-link"><Activity size={14} /> View All</Link>
           </div>
           <div className="activity-list">
-            <div className="activity-row">
-              <span className="activity-icon-round blue-bg"><ShoppingCart size={16} /></span>
-              <div className="activity-details">
-                <p>New order <strong>#ORD123456</strong> placed</p>
-                <span>2 min ago</span>
-              </div>
-            </div>
-            <div className="activity-row">
-              <span className="activity-icon-round lightblue-bg"><Store size={16} /></span>
-              <div className="activity-details">
-                <p>New seller application received</p>
-                <span>15 min ago</span>
-              </div>
-            </div>
-            <div className="activity-row">
-              <span className="activity-icon-round yellow-bg"><AlertCircle size={16} /></span>
-              <div className="activity-details">
-                <p>New dispute reported on order <strong>#ORD123450</strong></p>
-                <span>1 hour ago</span>
-              </div>
-            </div>
+            {stats.recentActivity.length ? stats.recentActivity.map((activity, index) => {
+              const Icon = activity.type === "seller" ? Store : activity.type === "payout" ? DollarSign : ShoppingCart;
+              const iconClass = activity.type === "seller" ? "lightblue-bg" : activity.type === "payout" ? "yellow-bg" : "blue-bg";
+              return (
+                <div className="activity-row" key={`${activity.type}-${index}`}>
+                  <span className={`activity-icon-round ${iconClass}`}><Icon size={16} /></span>
+                  <div className="activity-details">
+                    <p>{activity.title}</p>
+                    <span>{activity.time || "Just now"}</span>
+                  </div>
+                </div>
+              );
+            }) : (
+              <div className="empty-state">No recent activity.</div>
+            )}
           </div>
         </div>
 
@@ -401,39 +408,20 @@ function AdminDashboard() {
             <Link to="/admin/customers" className="column-header-link"><BarChart3 size={14} /> View All</Link>
           </div>
           <div className="top-sellers-list">
-            <div className="seller-rank-row">
-              <span className="rank-badge">#1</span>
-              <div className="seller-rank-details">
-                <strong>TechVendor</strong>
-                <span>89 orders</span>
+            {stats.sellerRevenueRows.slice(0, 3).map((seller, index) => (
+              <div className="seller-rank-row" key={seller.seller_id || seller.seller_name || index}>
+                <span className="rank-badge">#{index + 1}</span>
+                <div className="seller-rank-details">
+                  <strong>{seller.seller_name || "Seller"}</strong>
+                  <span>{number(seller.orders)} orders</span>
+                </div>
+                <div className="seller-rank-revenue">
+                  <strong>{money(seller.revenue)}</strong>
+                  <span>Revenue</span>
+                </div>
               </div>
-              <div className="seller-rank-revenue">
-                <strong>$12,450</strong>
-                <span>Revenue</span>
-              </div>
-            </div>
-            <div className="seller-rank-row">
-              <span className="rank-badge">#2</span>
-              <div className="seller-rank-details">
-                <strong>StyleHub</strong>
-                <span>72 orders</span>
-              </div>
-              <div className="seller-rank-revenue">
-                <strong>$9,840</strong>
-                <span>Revenue</span>
-              </div>
-            </div>
-            <div className="seller-rank-row">
-              <span className="rank-badge">#3</span>
-              <div className="seller-rank-details">
-                <strong>HomeGoods</strong>
-                <span>65 orders</span>
-              </div>
-              <div className="seller-rank-revenue">
-                <strong>$8,320</strong>
-                <span>Revenue</span>
-              </div>
-            </div>
+            ))}
+            {!stats.sellerRevenueRows.length && <div className="empty-state">No seller revenue yet.</div>}
           </div>
         </div>
       </div>
@@ -462,28 +450,28 @@ function AdminDashboard() {
           <div className="health-metric-bar-block">
             <div className="health-bar-labels">
               <span>Active Sellers</span>
-              <strong>38/42</strong>
+              <strong>{activeSellers}/{totalSellers}</strong>
             </div>
             <div className="health-bar-track">
-              <div className="health-bar-fill green-fill" style={{ width: "90%" }}></div>
+              <div className="health-bar-fill green-fill" style={{ width: `${totalSellers ? Math.min((activeSellers / totalSellers) * 100, 100) : 0}%` }}></div>
             </div>
           </div>
           <div className="health-metric-bar-block">
             <div className="health-bar-labels">
               <span>Product Approval Rate</span>
-              <strong>92%</strong>
+              <strong>{productApprovalRate.toFixed(1)}%</strong>
             </div>
             <div className="health-bar-track">
-              <div className="health-bar-fill blue-fill" style={{ width: "92%" }}></div>
+              <div className="health-bar-fill blue-fill" style={{ width: `${Math.min(productApprovalRate, 100)}%` }}></div>
             </div>
           </div>
           <div className="health-metric-bar-block">
             <div className="health-bar-labels">
               <span>Customer Satisfaction</span>
-              <strong>4.6/5.0</strong>
+              <strong>{customerSatisfaction.toFixed(1)}/5.0</strong>
             </div>
             <div className="health-bar-track">
-              <div className="health-bar-fill orange-fill" style={{ width: "92%" }}></div>
+              <div className="health-bar-fill orange-fill" style={{ width: `${Math.min((customerSatisfaction / 5) * 100, 100)}%` }}></div>
             </div>
           </div>
         </div>

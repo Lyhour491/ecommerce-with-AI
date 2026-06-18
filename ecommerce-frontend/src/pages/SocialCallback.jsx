@@ -3,6 +3,8 @@ import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import api from "../api/axios";
 import { unwrapUser } from "../utils/store";
 
+const getLoginRedirect = (user) => String(user?.role || "").toLowerCase() === "admin" ? "/admin" : "/";
+
 function SocialCallback() {
   const { provider } = useParams();
   const [searchParams] = useSearchParams();
@@ -33,22 +35,22 @@ function SocialCallback() {
         // Store credentials
         localStorage.setItem("token", token);
         
+        let user = res.data.user ? unwrapUser(res.data) : null;
+
         // Fetch user profile immediately
         try {
           const userRes = await api.get("/user");
-          const user = unwrapUser(userRes.data);
+          user = unwrapUser(userRes.data);
           localStorage.setItem("user", JSON.stringify(user));
         } catch (userErr) {
           console.error("Failed to fetch user profile after social login", userErr);
           // Fallback to whatever user info was returned in first response
-          if (res.data.user) {
-            localStorage.setItem("user", JSON.stringify(res.data.user));
-          }
+          if (user) localStorage.setItem("user", JSON.stringify(user));
         }
 
         setStatus("success");
         setTimeout(() => {
-          navigate("/products");
+          navigate(getLoginRedirect(user), { replace: true });
         }, 1200);
       } catch (err) {
         console.error("OAuth callback error", err);

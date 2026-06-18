@@ -102,6 +102,7 @@ class AuthController extends Controller
             'business_state' => 'nullable|string|max:255',
             'business_zip' => 'nullable|string|max:255',
             'business_country' => 'nullable|string|max:255',
+            'seller_settings' => 'nullable|array',
         ]);
 
         $user->update($data);

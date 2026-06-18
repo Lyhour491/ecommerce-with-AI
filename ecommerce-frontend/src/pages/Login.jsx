@@ -3,6 +3,8 @@ import { useNavigate, Link } from "react-router-dom";
 import api from "../api/axios";
 import { firstApiError, unwrapUser } from "../utils/store";
 
+const getLoginRedirect = (user) => String(user?.role || "").toLowerCase() === "admin" ? "/admin" : "/";
+
 function StoreVisual() {
   return (
     <div className="auth-visual">
@@ -57,16 +59,19 @@ function Login() {
       if (!token) throw new Error("No token returned from API.");
       localStorage.setItem("token", token);
       
+      let user = res.data.user ? unwrapUser(res.data) : null;
+
       // Fetch user profile immediately
       try {
         const userRes = await api.get("/user");
-        const user = unwrapUser(userRes.data);
+        user = unwrapUser(userRes.data);
         localStorage.setItem("user", JSON.stringify(user));
       } catch (userErr) {
         console.error("Failed to fetch user profile after login", userErr);
+        if (user) localStorage.setItem("user", JSON.stringify(user));
       }
 
-      navigate("/products");
+      navigate(getLoginRedirect(user), { replace: true });
     } catch (err) {
       setError(firstApiError(err, err.message || "Login failed."));
     } finally {

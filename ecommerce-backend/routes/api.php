@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\PayoutController;
 use App\Http\Controllers\Api\AdminSettingsController;
 use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\DisputeController;
 
 
 Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:register');
@@ -49,6 +50,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/orders/{order}/status', [OrderController::class, 'updateStatus']);
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::patch('/notifications/{notification}/read', [NotificationController::class, 'markAsRead']);
+    Route::get('/disputes', [DisputeController::class, 'index']);
+    Route::post('/orders/{order}/disputes', [DisputeController::class, 'store']);
 
     // ── Admin routes ────────────────────────────────────────────────────
     Route::middleware('admin')->group(function () {
@@ -60,7 +63,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/categories/{category}', [CategoryController::class, 'update']);
         Route::delete('/categories/{category}', [CategoryController::class, 'destroy']);
 
-        Route::post('/products', [ProductController::class, 'store']);
         Route::put('/products/{product}', [ProductController::class, 'update']);
         Route::delete('/products/{product}', [ProductController::class, 'destroy']);
         Route::post('/products/{product}/approve', [ProductController::class, 'approve']);
@@ -82,6 +84,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/admin/payouts', [PayoutController::class, 'adminIndex']);
         Route::post('/admin/payouts/{id}/process', [PayoutController::class, 'adminProcess']);
         Route::post('/admin/payouts/batch-process', [PayoutController::class, 'adminBatchProcess']);
+        Route::patch('/admin/disputes/{dispute}/status', [DisputeController::class, 'updateStatus']);
     });
 
     // ── Seller routes ───────────────────────────────────────────────────

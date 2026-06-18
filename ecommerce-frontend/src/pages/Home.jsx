@@ -15,6 +15,8 @@ function Home() {
   useDocumentTitle("Home - Shop Smarter with AI", "Welcome to MarketAI - the next-generation e-commerce platform with automated AI assistants.");
   const { showToast } = useToast();
   const [topProducts, setTopProducts] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   
   // Interactive Chatbot Modal State
@@ -30,15 +32,22 @@ function Home() {
 
     async function loadBestSellers() {
       try {
-        const res = await api.get("/top-products");
-        if (active) setTopProducts(unwrapList(res.data, ["products", "top_products"]).slice(0, 4));
-      } catch (error) {
-        try {
-          const fallback = await api.get("/products");
-          if (active) setTopProducts(unwrapList(fallback.data, ["products"]).slice(0, 4));
-        } catch {
-          if (active) setTopProducts([]);
+        const [topRes, productsRes, categoriesRes] = await Promise.allSettled([
+          api.get("/top-products"),
+          api.get("/products"),
+          api.get("/categories"),
+        ]);
+
+        if (!active) return;
+        if (productsRes.status === "fulfilled") {
+          const productList = unwrapList(productsRes.value.data, ["products"]);
+          setProducts(productList);
+          if (topRes.status !== "fulfilled") setTopProducts(productList.slice(0, 4));
         }
+        if (topRes.status === "fulfilled") setTopProducts(unwrapList(topRes.value.data, ["products", "top_products"]).slice(0, 4));
+        if (categoriesRes.status === "fulfilled") setCategories(unwrapList(categoriesRes.value.data, ["categories"]));
+      } catch (error) {
+        if (active) setTopProducts([]);
       } finally {
         if (active) setLoading(false);
       }
@@ -67,48 +76,32 @@ function Home() {
     }
   };
 
-  const categoriesList = [
-    { name: "Electronics", count: "12.5k Items", icon: <Cpu size={22} />, slug: "Electronics" },
-    { name: "Fashion", count: "8.2k Items", icon: <Shirt size={22} />, slug: "Fashion" },
-    { name: "Home & Garden", count: "5.4k Items", icon: <HomeIcon size={22} />, slug: "Home Office" },
-    { name: "Sports", count: "4.1k Items", icon: <Trophy size={22} />, slug: "Footwear" },
-    { name: "Books", count: "2.8k Items", icon: <BookOpen size={22} />, slug: "Books" },
-    { name: "Toys", count: "1.5k Items", icon: <Rocket size={22} />, slug: "Toys" },
-  ];
+  const categoryIcons = [Cpu, Shirt, HomeIcon, Trophy, BookOpen, Rocket];
+  const categoriesList = categories.slice(0, 6).map((category, index) => {
+    const Icon = categoryIcons[index % categoryIcons.length];
+    const count = products.filter((product) => String(product.category_id || product.category?.id) === String(category.id)).length;
+    return { name: category.name, count: `${count} item${count === 1 ? "" : "s"}`, icon: <Icon size={22} />, slug: category.name };
+  });
 
-  // Simple chatbot recommendation rule engine
-  const handleSendMessage = (e) => {
+  const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!userInput.trim()) return;
 
-    const query = userInput.toLowerCase();
     const userMsg = { sender: "user", text: userInput };
+    const text = userInput;
     setChatMessages(prev => [...prev, userMsg]);
     setUserInput("");
 
-    setTimeout(() => {
-      let responseText = "I see! Browse our categories or search for specific terms. Is there anything in Electronics, Fashion, or Audio you are interested in?";
-      
-      if (query.includes("headphone") || query.includes("audio") || query.includes("sound") || query.includes("ear")) {
-        responseText = "Based on our AI catalog analysis, we highly recommend the **ProSeries Wireless Headphones** ($349.00). It features 40-hour battery life and memory foam cushions, and has a 4.8★ user rating. [View Product](/products/1)";
-      } else if (query.includes("watch") || query.includes("smartwatch") || query.includes("time")) {
-        responseText = "For smart wearables, the **Pro Precision Smart Watch** ($249.00) is currently our top recommendation with premium health tracking. [View Product](/products/3)";
-      } else if (query.includes("shoe") || query.includes("run") || query.includes("sport") || query.includes("sneaker")) {
-        responseText = "Our top footwear choice is the **Sprint Runner Elite** ($129.00) built for comfortable running and high durability. [View Product](/products/4)";
-      } else if (query.includes("case") || query.includes("bag") || query.includes("travel")) {
-        responseText = "Consider checking out the **Carbon Fiber Travel Case** ($49.00) or our **Designer Backpack** ($89.99), perfect for accessories and daily commutes. [View Product](/products/6)";
-      } else if (query.includes("hi") || query.includes("hello") || query.includes("hey")) {
-        responseText = "Hi there! I can suggest products like Headphones, Smartwatches, Running Shoes, and Travel Cases. What are you looking to buy today?";
-      }
-
+    try {
+      const res = await api.post("/ai/chat", { message: text });
+      setChatMessages(prev => [...prev, { sender: "ai", text: res.data?.reply || res.data?.message || "I could not find a recommendation for that yet." }]);
+    } catch (err) {
+      const responseText = err.response?.status === 401
+        ? "Please sign in to use the AI shopping assistant with your account and live catalog context."
+        : "AI assistant is unavailable right now. Please try again later.";
       setChatMessages(prev => [...prev, { sender: "ai", text: responseText }]);
-    }, 800);
+    }
   };
-
-  // Static fallback values to ensure cards look exactly like mockups
-  const getRating = (id) => (id % 5 === 0 ? 4.5 : (id % 5 === 1 ? 4.8 : (id % 5 === 2 ? 4.9 : 4.7)));
-  const getReviews = (id) => (id * 17) % 150 + 20;
-  const getSeller = (id) => (id % 2 === 0 ? "TechWorks" : "StyleCo");
 
   return (
     <main className="home-container">
@@ -192,9 +185,9 @@ function Home() {
           <div className="featured-products-grid">
             {topProducts.map((product) => {
               const imageUrl = getImageUrl(product);
-              const rating = getRating(product.id);
-              const reviews = getReviews(product.id);
-              const seller = getSeller(product.id);
+              const rating = Number(product.average_rating || product.rating_avg || 0);
+              const reviews = Number(product.reviews_count || product.rating_count || 0);
+              const seller = product.seller?.shop_name || product.seller?.name || product.shop_name || product.user?.shop_name || product.user?.name || "Marketplace seller";
               return (
                 <div key={product.id} className="featured-product-card">
                   <Link to={`/products/${product.id}`} className="product-card-link">

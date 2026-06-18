@@ -111,22 +111,33 @@ function Products() {
     <main className="proshop-page">
       <section className="shop-shell">
         <aside className="shop-sidebar">
-          <h3>Categories</h3>
-          <div className="filter-list">
+          <div className="filter-panel-head">
+            <div>
+              <span>Filters</span>
+              <h3>Categories</h3>
+            </div>
+            <strong>{activeCategories.length || "All"}</strong>
+          </div>
+
+          <div className="filter-list category-filter-list">
             {categoryNames.map((category) => (
-              <label className="check-row" key={category}>
+              <label className="check-row category-check-row" key={category}>
                 <input
                   type="checkbox"
                   checked={activeCategories.includes(category)}
                   onChange={() => toggleCategory(category)}
                 />
-                <span>{category}</span>
+                <span className="category-check-mark" />
+                <span className="category-check-label">{category}</span>
               </label>
             ))}
           </div>
 
           <div className="filter-block">
-            <h3>Price Range</h3>
+            <div className="filter-block-title">
+              <h3>Price Range</h3>
+              <span>{money(maxPrice)}</span>
+            </div>
             <input
               className="range-input"
               type="range"
@@ -144,8 +155,9 @@ function Products() {
 
           <div className="filter-block">
             <h3>Availability</h3>
-            <label className="switch-row">
+            <label className="switch-row stock-switch-row">
               <input type="checkbox" checked={inStockOnly} onChange={(event) => setInStockOnly(event.target.checked)} />
+              <span className="stock-switch-control" />
               <span>In Stock Only</span>
             </label>
           </div>

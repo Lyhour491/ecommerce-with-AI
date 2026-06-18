@@ -29,6 +29,7 @@ class User extends Authenticatable
         'business_zip',
         'business_country',
         'seller_status',
+        'seller_settings',
         'phone',
         'country',
         'city',
@@ -48,6 +49,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'seller_settings' => 'array',
         ];
     }
 

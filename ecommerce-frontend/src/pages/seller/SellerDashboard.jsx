@@ -60,7 +60,7 @@ export default function SellerDashboard() {
         {/* Welcome Banner */}
         <div className="seller-welcome-row">
           <div>
-            <h1>Welcome back, {user?.shop_name || user?.name || "TechVendor"}</h1>
+            <h1>Welcome back, {user?.shop_name || user?.name || "Seller"}</h1>
             <p className="subtitle-text">Here's what's happening with your store today</p>
           </div>
           <Link to="/seller/products" className="seller-btn-primary add-product-btn-top">
@@ -76,7 +76,7 @@ export default function SellerDashboard() {
               <span className="metric-title">Net Revenue</span>
               <div className="metric-badge-container">
                 <span className="metric-icon-bg green-bg"><DollarSign size={18} /></span>
-                <span className="metric-badge-pill green-pill">↗ +12.5%</span>
+                <span className="metric-badge-pill green-pill">Live</span>
               </div>
             </div>
             <div className="metric-main-value">{money(netRevenue)}</div>
@@ -115,7 +115,7 @@ export default function SellerDashboard() {
               <span className="metric-title">Avg Order Value</span>
               <div className="metric-badge-container">
                 <span className="metric-icon-bg orange-bg"><Activity size={18} /></span>
-                <span className="metric-badge-pill orange-pill">↗ +5.2%</span>
+                <span className="metric-badge-pill orange-pill">Live</span>
               </div>
             </div>
             <div className="metric-main-value">{money(avgOrderValue)}</div>

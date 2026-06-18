@@ -38,4 +38,9 @@ class Order extends Model
     {
         return $this->hasMany(Message::class);
     }
+
+    public function disputes()
+    {
+        return $this->hasMany(Dispute::class);
+    }
 }

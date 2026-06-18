@@ -102,7 +102,7 @@ class AiController extends Controller
         foreach ($recommendations as $rec) {
             $targetId = $rec['product_id'] ?? null;
 
-            // If we are in mock fallback mode (product_id is null) or ID not found, shift one from otherProducts to ensure the UI shows a real product
+            // If the provider returns no usable product ID, keep the response grounded in real catalog products.
             if (!$targetId || !$otherProducts->contains('id', $targetId)) {
                 $candidate = $otherProducts->shift();
                 if ($candidate) {

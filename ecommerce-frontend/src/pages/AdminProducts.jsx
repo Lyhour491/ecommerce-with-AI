@@ -1,16 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  Bell,
   Box,
   Archive,
   CheckCircle,
-  CircleHelp,
   Edit3,
   Filter,
   FolderPlus,
   MoreVertical,
   Package,
-  Plus,
   Search,
   ShieldCheck,
   ShoppingCart,
@@ -123,14 +120,6 @@ function AdminProducts() {
   const pageSize = 5;
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / pageSize));
   const pageProducts = filteredProducts.slice((page - 1) * pageSize, page * pageSize);
-
-  const openAddProduct = () => {
-    setEditingProduct(null);
-    setProductForm(emptyProduct);
-    setShowProductModal(true);
-    setMessage("");
-    setError("");
-  };
 
   const openEditProduct = (product) => {
     setEditingProduct(product);
@@ -351,8 +340,7 @@ function AdminProducts() {
         <div className="product-like-actions">
           <label className="product-like-search"><Search size={17} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search catalog..." /></label>
           <button className="btn-add-product" onClick={openAddCategory}><FolderPlus size={18} /> Add Category</button>
-          <button className="btn-add-product" onClick={openAddProduct}><Plus size={18} /> Add Product</button>
-          <div className="merchant-top-actions"><Bell size={20} /><CircleHelp size={20} /><strong>{admin?.name || "Admin"}</strong></div>
+          <div className="merchant-top-actions"><strong>{admin?.name || "Admin"}</strong></div>
         </div>
       </header>
 
@@ -455,7 +443,7 @@ function AdminProducts() {
       {showProductModal && (
         <div className="modal-backdrop" role="dialog" aria-modal="true">
           <form className="edit-user-modal wide-modal" onSubmit={saveProduct} encType="multipart/form-data">
-            <div className="modal-header"><div><h2>{editingProduct ? "Edit Product" : "Add Product"}</h2><p>{editingProduct ? "Update product details, stock, price, or images." : "Create a new product for your store."}</p></div><button type="button" onClick={() => setShowProductModal(false)} aria-label="Close"><X size={18} /></button></div>
+            <div className="modal-header"><div><h2>Edit Product</h2><p>Update product details, stock, price, or images.</p></div><button type="button" onClick={() => setShowProductModal(false)} aria-label="Close"><X size={18} /></button></div>
             <label>Category<select value={productForm.category_id} onChange={(e) => setProductForm({ ...productForm, category_id: e.target.value })} required><option value="" disabled hidden>Select category</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
             <label>Name<input value={productForm.name} onChange={(e) => setProductForm({ ...productForm, name: e.target.value })} required placeholder="Product name" /></label>
             <label>Price<input type="number" step="0.01" min="0" value={productForm.price} onChange={(e) => setProductForm({ ...productForm, price: e.target.value })} required /></label>
@@ -484,7 +472,7 @@ function AdminProducts() {
             <label className="checkbox-label"><input type="checkbox" checked={productForm.replace_images} onChange={(e) => setProductForm({ ...productForm, replace_images: e.target.checked })} /> Replace all existing images with new images</label>
             <label>Image URLs <span>one per line, optional</span><textarea value={productForm.image_urls} onChange={(e) => setProductForm({ ...productForm, image_urls: e.target.value })} rows="2" placeholder="https://example.com/product.png" /></label>
             <label>Upload Images <span>{editingProduct ? "optional, adds new images" : "optional"}</span><input type="file" multiple accept="image/png,image/jpeg,image/jpg,image/webp" onChange={(e) => setProductForm({ ...productForm, images: Array.from(e.target.files || []) })} /></label>
-            <div className="modal-actions"><button type="button" className="btn-secondary" onClick={() => setShowProductModal(false)}>Cancel</button><button type="submit" className="btn-add-product" disabled={saving}>{saving ? "Saving..." : editingProduct ? "Save Product" : "Create Product"}</button></div>
+            <div className="modal-actions"><button type="button" className="btn-secondary" onClick={() => setShowProductModal(false)}>Cancel</button><button type="submit" className="btn-add-product" disabled={saving}>{saving ? "Saving..." : "Save Product"}</button></div>
           </form>
         </div>
       )}

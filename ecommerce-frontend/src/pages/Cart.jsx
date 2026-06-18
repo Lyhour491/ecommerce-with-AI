@@ -11,7 +11,6 @@ function Cart() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [promo, setPromo] = useState("");
 
   const loadCart = async () => {
     setLoading(true);
@@ -150,11 +149,6 @@ function Cart() {
           <div className="summary-line"><span>Shipping</span><b>Calculated at checkout</b></div>
           <div className="summary-line"><span>Tax</span><strong>{money(totals.tax)}</strong></div>
           <div className="summary-total"><span>Total</span><strong>{money(totals.total)}</strong><small>Prices in USD</small></div>
-          <label className="promo-label">Promo Code</label>
-          <div className="promo-row">
-            <input value={promo} onChange={(e) => setPromo(e.target.value)} placeholder="Enter code" />
-            <button type="button" onClick={() => setMessage("Promo codes are test-only in this demo.")}>Apply</button>
-          </div>
           <button className="checkout-button" type="button" disabled={!cartItems.length} onClick={() => navigate("/checkout")}>Proceed to Checkout →</button>
           <div className="trust-box">🛡 Secure SSL Encrypted Checkout</div>
           <div className="trust-box">🚚 Free Express Shipping on orders over $500</div>

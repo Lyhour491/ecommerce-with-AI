@@ -1,9 +1,22 @@
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { 
   AlertTriangle, Clock, CheckCircle2, Percent, Search, Filter, 
-  MoreVertical, Calendar, User, ShoppingCart, DollarSign, X, Edit3, ArrowRight, Bell, CircleHelp
+  MoreVertical, Calendar, User, ShoppingCart, DollarSign, X, Edit3, ArrowRight
 } from "lucide-react";
+import api from "../../api/axios";
 import { money } from "../../utils/store";
+
+const normalizeDispute = (dispute) => ({
+  id: dispute.display_id || `DSP-${String(dispute.id).padStart(4, "0")}`,
+  dbId: dispute.id,
+  orderNumber: dispute.order_number || dispute.order_id,
+  customerName: dispute.customer_name || "Customer",
+  reason: dispute.reason || "General dispute",
+  statement: dispute.statement || "",
+  amount: Number(dispute.amount || 0),
+  status: dispute.status || "pending",
+  date: dispute.date || (dispute.created_at ? new Date(dispute.created_at).toLocaleDateString() : "-"),
+});
 
 export default function AdminDisputes() {
   const [query, setQuery] = useState("");
@@ -12,85 +25,57 @@ export default function AdminDisputes() {
   const [message, setMessage] = useState("");
   const [admin] = useState({ name: "Admin" });
 
-  const [disputes, setDisputes] = useState([
-    {
-      id: "DSP-001",
-      orderNumber: "10034",
-      customerName: "Alice Johnson",
-      reason: "Item Not Received",
-      statement: "The package shows as delivered, but I have not received it. The shipping company has not responded to my inquiries.",
-      amount: 349.00,
-      status: "pending",
-      date: "Jan 10, 2026"
-    },
-    {
-      id: "DSP-002",
-      orderNumber: "10037",
-      customerName: "Bob Smith",
-      reason: "Product Defective",
-      statement: "The screen on the precision watch has a severe crack right out of the box. I would like a full refund.",
-      amount: 199.00,
-      status: "pending",
-      date: "Jan 12, 2026"
-    },
-    {
-      id: "DSP-003",
-      orderNumber: "10031",
-      customerName: "Charlie Brown",
-      reason: "Wrong Item Sent",
-      statement: "I ordered the Nordic Oak stand, but received a plastic shoe stand instead. Very disappointing.",
-      amount: 35.00,
-      status: "refunded",
-      date: "Jan 05, 2026"
-    },
-    {
-      id: "DSP-004",
-      orderNumber: "10028",
-      customerName: "Diana Prince",
-      reason: "Item Not Received",
-      statement: "Ordered watch last month. Tracking information is not updating and the seller does not reply.",
-      amount: 249.00,
-      status: "resolved",
-      date: "Jan 02, 2026"
-    },
-    {
-      id: "DSP-005",
-      orderNumber: "10042",
-      customerName: "Ethan Hunt",
-      reason: "Defective Item",
-      statement: "Earbuds audio is crackling on the left side. Seller ignored replacement request.",
-      amount: 199.00,
-      status: "pending",
-      date: "Jan 14, 2026"
+  const [disputes, setDisputes] = useState([]);
+  const [ordersCount, setOrdersCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  const loadDisputes = async () => {
+    setLoading(true);
+    try {
+      const [disputesRes, statsRes] = await Promise.allSettled([
+        api.get("/disputes"),
+        api.get("/admin/stats"),
+      ]);
+
+      if (disputesRes.status === "fulfilled") {
+        const list = Array.isArray(disputesRes.value.data) ? disputesRes.value.data : disputesRes.value.data?.data || [];
+        setDisputes(list.map(normalizeDispute));
+      }
+      if (statsRes.status === "fulfilled") {
+        setOrdersCount(Number(statsRes.value.data?.totals?.orders || 0));
+      }
+    } finally {
+      setLoading(false);
     }
-  ]);
+  };
+
+  useEffect(() => {
+    loadDisputes();
+  }, []);
 
   // Reject Claim: Mark dispute as Resolved (claim denied)
-  const handleRejectClaim = (dispute) => {
-    setDisputes((prev) =>
-      prev.map((item) => (item.id === dispute.id ? { ...item, status: "resolved" } : item))
-    );
+  const handleRejectClaim = async (dispute) => {
+    const res = await api.patch(`/admin/disputes/${dispute.dbId}/status`, { status: "resolved" });
+    const updated = normalizeDispute(res.data?.dispute);
+    setDisputes((prev) => prev.map((item) => (item.dbId === dispute.dbId ? updated : item)));
     setMessage(`Dispute ${dispute.id} has been closed/resolved. Customer claim rejected.`);
     setSelectedDispute(null);
-    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   // Refund Customer: Mark dispute as Refunded (money returned)
-  const handleRefundCustomer = (dispute) => {
-    setDisputes((prev) =>
-      prev.map((item) => (item.id === dispute.id ? { ...item, status: "refunded" } : item))
-    );
+  const handleRefundCustomer = async (dispute) => {
+    const res = await api.patch(`/admin/disputes/${dispute.dbId}/status`, { status: "refunded" });
+    const updated = normalizeDispute(res.data?.dispute);
+    setDisputes((prev) => prev.map((item) => (item.dbId === dispute.dbId ? updated : item)));
     setMessage(`Dispute ${dispute.id} resolved. Successfully refunded ${money(dispute.amount)} to ${dispute.customerName}.`);
     setSelectedDispute(null);
-    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   // Calculate dynamic stats
   const stats = useMemo(() => {
     const active = disputes.filter((d) => d.status === "pending").length;
     const refunded = disputes.filter((d) => d.status === "refunded").length;
-    // Ratio formula simulation: Active / (Total resolved + Active)
-    const ratio = "0.15%"; 
+    const ratio = ordersCount ? `${((disputes.length / ordersCount) * 100).toFixed(2)}%` : "0.00%";
 
     return [
       { label: "Active Disputes", value: active.toString(), note: "Awaiting action", icon: AlertTriangle, tone: "red" },
@@ -98,7 +83,7 @@ export default function AdminDisputes() {
       { label: "Refunded Claims", value: refunded.toString(), note: "Closed disputes", icon: CheckCircle2, tone: "green" },
       { label: "Chargeback Ratio", value: ratio, note: "Platform health", icon: Percent, tone: "purple" },
     ];
-  }, [disputes]);
+  }, [disputes, ordersCount]);
 
   // Filter & Search Disputes
   const filteredDisputes = useMemo(() => {
@@ -116,6 +101,8 @@ export default function AdminDisputes() {
     });
   }, [disputes, query, tab]);
 
+  if (loading) return <section className="merchant-dashboard admin-disputes-page"><div className="loading">Loading disputes...</div></section>;
+
   return (
     <section className="merchant-dashboard admin-disputes-page">
       <header className="merchant-topbar product-like-topbar">
@@ -130,8 +117,6 @@ export default function AdminDisputes() {
             />
           </label>
           <div className="merchant-top-actions">
-            <Bell size={20} />
-            <CircleHelp size={20} />
             <strong>{admin.name}</strong>
             <span className="mini-profile">D</span>
           </div>

@@ -28,17 +28,17 @@ export default function SellerSettings() {
 
   // Extended merchant configurations (persisted to localStorage)
   const [extendedForm, setExtendedForm] = useState({
-    shop_slug: "techvendor",
-    legal_business_name: "TechVendor Inc.",
-    email: "contact@techvendor.com",
+    shop_slug: "",
+    legal_business_name: "",
+    email: "",
     
     // Payout settings
     payout_method: "bank",
-    bank_name: "Chase Bank",
-    account_name: "TechVendor Inc.",
-    account_number: "•••• 4567",
-    routing_number: "123456789",
-    paypal_email: "billing@techvendor.com",
+    bank_name: "",
+    account_name: "",
+    account_number: "",
+    routing_number: "",
+    paypal_email: "",
 
     // Shipping settings
     free_shipping_threshold: "50",
@@ -57,15 +57,15 @@ export default function SellerSettings() {
   });
 
   const defaultExtendedForm = {
-    shop_slug: "techvendor",
-    legal_business_name: "TechVendor Inc.",
-    email: "contact@techvendor.com",
+    shop_slug: "",
+    legal_business_name: "",
+    email: "",
     payout_method: "bank",
-    bank_name: "Chase Bank",
-    account_name: "TechVendor Inc.",
-    account_number: "•••• 4567",
-    routing_number: "123456789",
-    paypal_email: "billing@techvendor.com",
+    bank_name: "",
+    account_name: "",
+    account_number: "",
+    routing_number: "",
+    paypal_email: "",
     free_shipping_threshold: "50",
     processing_time: "1-2",
     standard_shipping_rate: "5.99",
@@ -95,23 +95,13 @@ export default function SellerSettings() {
           business_country: user.business_country || "United States",
         });
 
-        // Load extended state if previously saved
-        const saved = localStorage.getItem(`seller_extended_settings_${user.id}`);
-        if (saved) {
-          try {
-            setExtendedForm(JSON.parse(saved));
-          } catch (e) {
-            console.error("Failed to parse settings", e);
-          }
-        } else {
-          // Initialize defaults
-          setExtendedForm({
-            ...defaultExtendedForm,
-            shop_slug: (user.shop_name || "techvendor").toLowerCase().replace(/[^a-z0-9]/g, "-"),
-            email: user.email || "contact@techvendor.com",
-            legal_business_name: (user.shop_name || "TechVendor") + " Inc.",
-          });
-        }
+        setExtendedForm({
+          ...defaultExtendedForm,
+          ...(user.seller_settings || {}),
+          shop_slug: user.seller_settings?.shop_slug || (user.shop_name || "").toLowerCase().replace(/[^a-z0-9]/g, "-"),
+          email: user.seller_settings?.email || user.email || "",
+          legal_business_name: user.seller_settings?.legal_business_name || user.shop_name || "",
+        });
       })
       .catch((err) => setError(firstApiError(err, "Failed to load seller settings.")))
       .finally(() => setLoading(false));
@@ -146,12 +136,11 @@ export default function SellerSettings() {
 
       const resetExt = {
         ...defaultExtendedForm,
-        shop_slug: (rawUser.shop_name || "techvendor").toLowerCase().replace(/[^a-z0-9]/g, "-"),
-        email: rawUser.email || "contact@techvendor.com",
-        legal_business_name: (rawUser.shop_name || "TechVendor") + " Inc.",
+        shop_slug: (rawUser.shop_name || "").toLowerCase().replace(/[^a-z0-9]/g, "-"),
+        email: rawUser.email || "",
+        legal_business_name: rawUser.shop_name || "",
       };
       setExtendedForm(resetExt);
-      localStorage.setItem(`seller_extended_settings_${rawUser.id}`, JSON.stringify(resetExt));
       setMessage("Settings reset to defaults successfully.");
     }
   };
@@ -167,15 +156,13 @@ export default function SellerSettings() {
       const res = await api.put("/user/profile", {
         name: rawUser?.name || "Seller",
         email: rawUser?.email || "",
-        ...profileForm
+        ...profileForm,
+        seller_settings: extendedForm,
       });
       const user = unwrapUser(res.data);
       setRawUser(user);
       localStorage.setItem("user", JSON.stringify(user));
 
-      // Save custom fields locally
-      localStorage.setItem(`seller_extended_settings_${user.id}`, JSON.stringify(extendedForm));
-      
       setMessage("Settings updated successfully.");
     } catch (err) {
       setError(firstApiError(err, "Failed to save settings."));
@@ -261,7 +248,7 @@ export default function SellerSettings() {
                   <Store size={28} />
                 </div>
                 <div className="logo-upload-info">
-                  <button type="button" className="btn-upload-logo-action" onClick={() => alert("Upload feature simulated. Double check your settings.")}>
+                  <button type="button" className="btn-upload-logo-action" disabled title="Logo upload is not configured yet">
                     <Upload size={13} /> Upload Logo
                   </button>
                   <span style={{ fontSize: 11, color: "var(--muted)" }}>Recommended: 400x400px, PNG or JPG</span>
