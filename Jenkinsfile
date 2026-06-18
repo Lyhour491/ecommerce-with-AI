@@ -1,284 +1,232 @@
 pipeline {
     agent any
 
+    options {
+        timestamps()
+        disableConcurrentBuilds()
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+    }
+
+    parameters {
+        string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Branch to deploy when this job is not using SCM checkout.')
+        string(name: 'APP_URL', defaultValue: 'http://localhost:8000', description: 'Public backend URL.')
+        string(name: 'VITE_API_URL', defaultValue: 'http://localhost:8000/api', description: 'Frontend API URL.')
+        booleanParam(name: 'RUN_TESTS', defaultValue: true, description: 'Run frontend and backend tests before deployment.')
+        booleanParam(name: 'RUN_SEEDERS', defaultValue: false, description: 'Run Laravel seeders after migration. Keep false for production.')
+        booleanParam(name: 'REBUILD_IMAGES', defaultValue: true, description: 'Rebuild Docker images during deployment.')
+    }
+
     environment {
-        // ── Docker Compose project name ──
         COMPOSE_PROJECT_NAME = 'ecommerce'
-
-        // ── MySQL credentials (match docker-compose.yml) ──
-        DB_DATABASE     = 'ecommerce_store'
-        DB_USERNAME     = 'ecommerce_user'
-        DB_PASSWORD     = 'ecommerce_password'
+        DB_DATABASE = 'ecommerce_store'
+        DB_USERNAME = 'ecommerce_user'
+        DB_PASSWORD = 'ecommerce_password'
         MYSQL_ROOT_PASS = 'root'
-
-        // ── GitHub repo ──
-        GIT_REPO = 'https://github.com/Lyhour491/ecommerce-with-AI.git'
-        GIT_BRANCH = 'main'
-
-        // Variable to track Docker availability
-        HAS_DOCKER = 'false'
     }
 
     stages {
-
-        // ════════════════════════════════════════════
-        //  0. Docker Availability Check
-        // ════════════════════════════════════════════
-        stage('Check Docker') {
+        stage('Checkout') {
             steps {
                 script {
                     try {
-                        sh 'docker info'
-                        env.HAS_DOCKER = 'true'
-                        echo '🐳 Docker daemon is running and accessible. Using Dockerized environment...'
-                    } catch (Exception e) {
-                        env.HAS_DOCKER = 'false'
-                        echo '⚠️ Docker daemon is not accessible or not running. Falling back to local host toolchain...'
+                        checkout scm
+                    } catch (Exception ignored) {
+                        git branch: params.GIT_BRANCH, url: 'https://github.com/Lyhour491/ecommerce-with-AI.git'
                     }
                 }
             }
         }
 
-        // ════════════════════════════════════════════
-        //  1. Checkout
-        // ════════════════════════════════════════════
-        stage('Checkout') {
+        stage('Verify Docker') {
             steps {
-                echo '📥 Cloning repository...'
-                git branch: "${GIT_BRANCH}",
-                    url: "${GIT_REPO}"
-            }
-        }
-
-        // ════════════════════════════════════════════
-        //  2. Docker Pipeline Stages
-        // ════════════════════════════════════════════
-        stage('Prepare Environment (Docker)') {
-            when {
-                expression { return env.HAS_DOCKER == 'true' }
-            }
-            steps {
-                echo '⚙️  Preparing .env files for Docker...'
-
-                // Backend .env
-                dir('ecommerce-backend') {
-                    sh '''
-                        cp .env.example .env || true
-                        sed -i "s|DB_HOST=.*|DB_HOST=mysql|"               .env
-                        sed -i "s|DB_PORT=.*|DB_PORT=3306|"                .env
-                        sed -i "s|DB_DATABASE=.*|DB_DATABASE=${DB_DATABASE}|" .env
-                        sed -i "s|DB_USERNAME=.*|DB_USERNAME=${DB_USERNAME}|" .env
-                        sed -i "s|DB_PASSWORD=.*|DB_PASSWORD=${DB_PASSWORD}|" .env
-                        sed -i "s|APP_ENV=.*|APP_ENV=production|"           .env
-                        sed -i "s|APP_DEBUG=.*|APP_DEBUG=false|"            .env
-                        sed -i "s|APP_URL=.*|APP_URL=http://localhost:8000|" .env
-                    '''
-                }
-
-                // Frontend .env
-                dir('ecommerce-frontend') {
-                    sh '''
-                        echo "VITE_API_URL=http://localhost:8000/api" > .env
-                    '''
-                }
-            }
-        }
-
-        stage('Build (Docker)') {
-            when {
-                expression { return env.HAS_DOCKER == 'true' }
-            }
-            steps {
-                echo '🔨 Building Docker images...'
-                sh 'docker compose build --no-cache'
-            }
-        }
-
-        stage('Start Services (Docker)') {
-            when {
-                expression { return env.HAS_DOCKER == 'true' }
-            }
-            steps {
-                echo '🚀 Starting all containers...'
-                sh 'docker compose up -d'
-
-                // Wait for MySQL to be healthy
-                echo '⏳ Waiting for MySQL to be ready...'
                 sh '''
+                    set -eu
+                    docker info >/dev/null
+                    docker compose version
+                    docker compose config -q
+                '''
+            }
+        }
+
+        stage('Prepare Environment') {
+            steps {
+                sh '''
+                    set -eu
+
+                    set_env() {
+                        file="$1"
+                        key="$2"
+                        value="$3"
+                        if grep -q "^${key}=" "$file"; then
+                            sed -i "s|^${key}=.*|${key}=${value}|" "$file"
+                        else
+                            printf "\\n%s=%s\\n" "$key" "$value" >> "$file"
+                        fi
+                    }
+
+                    cp ecommerce-backend/.env.example ecommerce-backend/.env
+                    set_env ecommerce-backend/.env APP_ENV production
+                    set_env ecommerce-backend/.env APP_DEBUG false
+                    set_env ecommerce-backend/.env APP_URL "${APP_URL}"
+                    set_env ecommerce-backend/.env DB_CONNECTION mysql
+                    set_env ecommerce-backend/.env DB_HOST mysql
+                    set_env ecommerce-backend/.env DB_PORT 3306
+                    set_env ecommerce-backend/.env DB_DATABASE "${DB_DATABASE}"
+                    set_env ecommerce-backend/.env DB_USERNAME "${DB_USERNAME}"
+                    set_env ecommerce-backend/.env DB_PASSWORD "${DB_PASSWORD}"
+                    set_env ecommerce-backend/.env CACHE_STORE redis
+                    set_env ecommerce-backend/.env SESSION_DRIVER redis
+                    set_env ecommerce-backend/.env QUEUE_CONNECTION redis
+                    set_env ecommerce-backend/.env REDIS_HOST redis
+                    set_env ecommerce-backend/.env REDIS_PORT 6379
+                    set_env ecommerce-backend/.env VITE_API_URL "${VITE_API_URL}"
+
+                    if [ -n "${GEMINI_API_KEY:-}" ]; then
+                        set_env ecommerce-backend/.env GEMINI_API_KEY "${GEMINI_API_KEY}"
+                    fi
+                    if [ -n "${GOOGLE_CLIENT_ID:-}" ]; then
+                        set_env ecommerce-backend/.env GOOGLE_CLIENT_ID "${GOOGLE_CLIENT_ID}"
+                    fi
+                    if [ -n "${GOOGLE_CLIENT_SECRET:-}" ]; then
+                        set_env ecommerce-backend/.env GOOGLE_CLIENT_SECRET "${GOOGLE_CLIENT_SECRET}"
+                    fi
+
+                    printf "VITE_API_URL=%s\\n" "${VITE_API_URL}" > ecommerce-frontend/.env
+                '''
+            }
+        }
+
+        stage('Build Images') {
+            when {
+                expression { return params.REBUILD_IMAGES }
+            }
+            steps {
+                sh 'docker compose build app queue scheduler'
+            }
+        }
+
+        stage('Install Dependencies') {
+            steps {
+                sh '''
+                    set -eu
+                    docker compose up -d mysql redis
+                    docker compose run --rm app composer install --no-interaction --prefer-dist --optimize-autoloader
+                    docker run --rm -v "$PWD/ecommerce-frontend:/app" -w /app node:20-alpine npm ci
+                '''
+            }
+        }
+
+        stage('Test') {
+            when {
+                expression { return params.RUN_TESTS }
+            }
+            parallel {
+                stage('Backend Tests') {
+                    steps {
+                        sh '''
+                            set -eu
+                            docker compose run --rm \
+                                -e APP_ENV=testing \
+                                -e DB_CONNECTION=sqlite \
+                                -e DB_DATABASE=:memory: \
+                                app php artisan test
+                        '''
+                    }
+                }
+                stage('Frontend Build') {
+                    steps {
+                        sh '''
+                            set -eu
+                            docker run --rm -v "$PWD/ecommerce-frontend:/app" -w /app node:20-alpine npm run lint -- --quiet
+                            docker run --rm -v "$PWD/ecommerce-frontend:/app" -w /app node:20-alpine npm run build
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                sh '''
+                    set -eu
+                    if [ "${REBUILD_IMAGES}" = "true" ]; then
+                        docker compose up -d --build
+                    else
+                        docker compose up -d
+                    fi
+                '''
+            }
+        }
+
+        stage('Laravel Release Tasks') {
+            steps {
+                sh '''
+                    set -eu
+
                     for i in $(seq 1 30); do
                         docker exec ecommerce_mysql mysqladmin ping -h localhost -u root -p${MYSQL_ROOT_PASS} --silent && break
                         echo "Waiting for MySQL... ($i/30)"
                         sleep 2
                     done
+
+                    docker compose exec -T app composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
+
+                    if ! docker compose exec -T app php artisan env | grep -q "production"; then
+                        echo "Warning: Laravel APP_ENV is not production inside the app container."
+                    fi
+
+                    if docker compose exec -T app sh -c 'grep -q "^APP_KEY=base64:" .env'; then
+                        echo "APP_KEY already configured."
+                    else
+                        docker compose exec -T app php artisan key:generate --force
+                    fi
+
+                    docker compose exec -T app php artisan migrate --force
+
+                    if [ "${RUN_SEEDERS}" = "true" ]; then
+                        docker compose exec -T app php artisan db:seed --force
+                    fi
+
+                    docker compose exec -T app php artisan storage:link || true
+                    docker compose exec -T app php artisan config:clear
+                    docker compose exec -T app php artisan cache:clear
+                    docker compose exec -T app php artisan view:clear
+                    docker compose exec -T app php artisan config:cache
+                    docker compose exec -T app php artisan view:cache
+                    docker compose restart queue scheduler nginx
                 '''
             }
         }
 
-        stage('Laravel Setup (Docker)') {
-            when {
-                expression { return env.HAS_DOCKER == 'true' }
-            }
+        stage('Health Check') {
             steps {
-                echo '🗄️  Running Laravel setup...'
                 sh '''
-                    docker exec ecommerce_app php artisan key:generate --force
-                    docker exec ecommerce_app php artisan config:cache
-                    docker exec ecommerce_app php artisan migrate --force
-                    docker exec ecommerce_app php artisan db:seed --force
-                    docker exec ecommerce_app php artisan storage:link || true
+                    set -eu
+                    for i in $(seq 1 30); do
+                        if curl -fsS "${APP_URL}/api/products" >/dev/null; then
+                            echo "Backend API is healthy."
+                            exit 0
+                        fi
+                        echo "Waiting for backend health check... ($i/30)"
+                        sleep 2
+                    done
+                    curl -fsS "${APP_URL}/api/products"
                 '''
-            }
-        }
-
-        stage('Test (Docker)') {
-            when {
-                expression { return env.HAS_DOCKER == 'true' }
-            }
-            steps {
-                echo '🧪 Running backend tests...'
-                sh 'docker exec ecommerce_app php artisan test'
-            }
-        }
-
-        stage('Health Check (Docker)') {
-            when {
-                expression { return env.HAS_DOCKER == 'true' }
-            }
-            steps {
-                echo '❤️  Verifying services are up...'
-                sh '''
-                    echo "-- Backend API --"
-                    curl -sf http://localhost:8000/api/products || echo "⚠️ Backend API not responding"
-
-                    echo "-- Frontend --"
-                    curl -sf http://localhost:5173 || echo "⚠️ Frontend not responding"
-
-                    echo "-- phpMyAdmin --"
-                    curl -sf http://localhost:8080 || echo "⚠️ phpMyAdmin not responding"
-                '''
-            }
-        }
-
-        // ════════════════════════════════════════════
-        //  3. Local Pipeline Stages (Fallback)
-        // ════════════════════════════════════════════
-        stage('Prepare Environment (Local)') {
-            when {
-                expression { return env.HAS_DOCKER == 'false' }
-            }
-            steps {
-                echo '⚙️  Preparing .env files for Local SQLite...'
-
-                // Backend .env
-                dir('ecommerce-backend') {
-                    sh '''
-                        cp .env.example .env || true
-                        sed -i "s|DB_CONNECTION=.*|DB_CONNECTION=sqlite|" .env
-                        sed -i "s|DB_HOST=.*|# DB_HOST=mysql|" .env
-                        sed -i "s|DB_PORT=.*|# DB_PORT=3306|" .env
-                        sed -i "s|DB_DATABASE=.*|# DB_DATABASE=ecommerce_store|" .env
-                        sed -i "s|DB_USERNAME=.*|# DB_USERNAME=ecommerce_user|" .env
-                        sed -i "s|DB_PASSWORD=.*|# DB_PASSWORD=ecommerce_password|" .env
-                        sed -i "s|APP_ENV=.*|APP_ENV=testing|" .env
-                        sed -i "s|APP_DEBUG=.*|APP_DEBUG=true|" .env
-                    '''
-                    // Ensure local SQLite database file exists
-                    sh 'touch database/database.sqlite'
-                }
-
-                // Frontend .env
-                dir('ecommerce-frontend') {
-                    sh '''
-                        echo "VITE_API_URL=http://127.0.0.1:8000/api" > .env
-                    '''
-                }
-            }
-        }
-
-        stage('Install & Build (Local)') {
-            when {
-                expression { return env.HAS_DOCKER == 'false' }
-            }
-            steps {
-                echo '🔨 Installing backend and frontend dependencies locally...'
-                dir('ecommerce-backend') {
-                    sh 'composer install --no-interaction --prefer-dist'
-                }
-                dir('ecommerce-frontend') {
-                    sh 'npm install'
-                    sh 'npm run build'
-                }
-            }
-        }
-
-        stage('Laravel Setup (Local)') {
-            when {
-                expression { return env.HAS_DOCKER == 'false' }
-            }
-            steps {
-                echo '🗄️  Setting up Laravel SQLite database...'
-                dir('ecommerce-backend') {
-                    sh 'php artisan key:generate --force'
-                    sh 'php artisan migrate:fresh --seed --force'
-                    sh 'php artisan storage:link || true'
-                }
-            }
-        }
-
-        stage('Test (Local)') {
-            when {
-                expression { return env.HAS_DOCKER == 'false' }
-            }
-            steps {
-                echo '🧪 Running backend tests locally...'
-                dir('ecommerce-backend') {
-                    sh 'php artisan test'
-                }
             }
         }
     }
 
-    // ════════════════════════════════════════════════
-    //  Post Actions
-    // ════════════════════════════════════════════════
     post {
         success {
-            script {
-                if (env.HAS_DOCKER == 'true') {
-                    echo '''
-                    ✅ ══════════════════════════════════════════
-                       Deployment Successful (Docker Compose)!
-                    ══════════════════════════════════════════
-                       🌐 Frontend:    http://localhost:5173
-                       🔌 Backend API: http://localhost:8000/api
-                       🗃️ phpMyAdmin:  http://localhost:8080
-                    ══════════════════════════════════════════
-                    '''
-                } else {
-                    echo '''
-                    ✅ ══════════════════════════════════════════
-                       CI/CD Pipeline Successful (Local Fallback)!
-                       Backend tests passed and frontend was successfully built.
-                    ══════════════════════════════════════════
-                    '''
-                }
-            }
+            echo "Deployment completed successfully: ${APP_URL}"
         }
         failure {
-            echo '❌ Deployment failed! Collecting information...'
-            script {
-                if (env.HAS_DOCKER == 'true') {
-                    sh 'docker compose logs --tail=50 || true'
-                }
-            }
+            echo 'Deployment failed. Showing recent Docker logs.'
+            sh 'docker compose ps || true'
+            sh 'docker compose logs --tail=120 app nginx queue scheduler || true'
         }
         cleanup {
-            script {
-                if (env.HAS_DOCKER == 'true') {
-                    echo '🧹 Cleaning up dangling images...'
-                    sh 'docker image prune -f || true'
-                }
-            }
+            sh 'docker image prune -f || true'
         }
     }
 }
