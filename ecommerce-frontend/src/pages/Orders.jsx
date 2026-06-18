@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import api from "../api/axios";
 import { firstApiError, getImageUrl, money, unwrapList } from "../utils/store";
 import { useDocumentTitle } from "../utils/seo";
+import { usePersonalizedRecommendations } from "../hooks/usePersonalizedRecommendations";
 import { 
   Package, Heart, TrendingUp, ShoppingCart, 
   Search, Settings, ArrowLeft, Store, ChevronRight,
@@ -24,6 +25,7 @@ function Orders() {
   const [cartCount, setCartCount] = useState(0);
   const [recommendations, setRecommendations] = useState([]);
   const [downloading, setDownloading] = useState(false);
+  const { data: personalizedRecommendations, isLoading: recommendationsLoading } = usePersonalizedRecommendations(4);
   
   // Chat state hooks
   const [showChatModal, setShowChatModal] = useState(false);
@@ -93,19 +95,13 @@ function Orders() {
       })
       .catch((err) => console.error("Failed to load cart count", err));
 
-    // Fetch recommended products
-    api.get("/top-products")
-      .then((res) => {
-        setRecommendations(unwrapList(res.data, ["products", "top_products"]).slice(0, 4));
-      })
-      .catch(() => {
-        api.get("/products")
-          .then((res) => {
-            setRecommendations(unwrapList(res.data, ["products"]).slice(0, 4));
-          })
-          .catch((err) => console.error("Failed to load recommendations", err));
-      });
   }, [navigate]);
+
+  useEffect(() => {
+    if (personalizedRecommendations?.products) {
+      setRecommendations(personalizedRecommendations.products.slice(0, 4));
+    }
+  }, [personalizedRecommendations]);
 
   // Calculations for dashboard metrics
   const metrics = {
@@ -1256,11 +1252,31 @@ function Orders() {
       </div>
 
       {/* Recommended for You Grid */}
-      {recommendations.length > 0 && (
+      {(recommendationsLoading || recommendations.length > 0) && (
         <section className="dashboard-rec-section">
-          <h2 className="dashboard-rec-title">Recommended for You</h2>
+          <div className="dashboard-rec-heading">
+            <div>
+              <h2 className="dashboard-rec-title">Recommended For You</h2>
+              <p>Based on your wishlist, previous purchases, and product categories.</p>
+            </div>
+            <div className="dashboard-rec-basis">
+              <span className={personalizedRecommendations?.based_on?.wishlist ? "active" : ""}>Wishlist</span>
+              <span className={personalizedRecommendations?.based_on?.previous_purchases ? "active" : ""}>Previous purchases</span>
+              <span className={personalizedRecommendations?.based_on?.product_categories ? "active" : ""}>Product categories</span>
+            </div>
+          </div>
           <div className="dashboard-rec-grid">
-            {recommendations.map((prod) => {
+            {recommendationsLoading && recommendations.length === 0 ? (
+              Array.from({ length: 4 }).map((_, idx) => (
+                <div className="dashboard-rec-card loading" key={idx}>
+                  <div className="dashboard-rec-media" />
+                  <div className="dashboard-rec-info">
+                    <h3 className="dashboard-rec-name">Loading...</h3>
+                    <span className="dashboard-rec-price">Finding matches</span>
+                  </div>
+                </div>
+              ))
+            ) : recommendations.map((prod) => {
               const img = getImageUrl(prod);
               return (
                 <div 
@@ -1277,6 +1293,9 @@ function Orders() {
                   </div>
                   <div className="dashboard-rec-info">
                     <h3 className="dashboard-rec-name">{prod.name}</h3>
+                    {prod.recommendation_reason && (
+                      <p className="dashboard-rec-reason">{prod.recommendation_reason}</p>
+                    )}
                     <span className="dashboard-rec-price">{money(prod.price)}</span>
                   </div>
                 </div>

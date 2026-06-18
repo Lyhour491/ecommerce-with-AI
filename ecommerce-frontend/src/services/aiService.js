@@ -36,8 +36,23 @@ export const aiService = {
     return data;
   },
 
+  generateSeoKeywords: async (prompt) => {
+    const { data } = await api.post("/seller/ai/seo-keywords", { prompt });
+    return data;
+  },
+
   suggestPrice: async (prompt) => {
     const { data } = await api.post("/seller/ai/product-price", { prompt });
+    return data;
+  },
+
+  sellerInsights: async () => {
+    const { data } = await api.get("/seller/ai-insights");
+    return data;
+  },
+
+  reviewSentiment: async () => {
+    const { data } = await api.get("/seller/ai/review-sentiment");
     return data;
   },
 };

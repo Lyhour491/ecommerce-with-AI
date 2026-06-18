@@ -2,7 +2,7 @@ import { useState } from "react";
 import api from "../../api/axios";
 import { money, getImageUrl, firstApiError, unwrapList } from "../../utils/store";
 import { Plus, Pencil, Trash2, X, FileEdit, Sparkles } from "lucide-react";
-import { useAiProductDraft } from "../../hooks/useAiProductTools";
+import { useAiProductDraft, useAiProductField } from "../../hooks/useAiProductTools";
 import { useProductCategories, useSellerProducts } from "../../hooks/useSellerProducts";
 
 const getSellerProductStatus = (product, stock) => {
@@ -18,6 +18,7 @@ export default function SellerProducts() {
   const productsQuery = useSellerProducts();
   const categoriesQuery = useProductCategories();
   const aiDraftMutation = useAiProductDraft();
+  const aiFieldMutation = useAiProductField();
   const products = productsQuery.data || [];
   const categories = categoriesQuery.data || [];
   const loading = productsQuery.isLoading || categoriesQuery.isLoading;
@@ -42,15 +43,27 @@ export default function SellerProducts() {
 
   const [showAiAssist, setShowAiAssist] = useState(false);
   const [aiPrompt, setAiPrompt] = useState("");
+  const [aiProductName, setAiProductName] = useState("");
+  const [aiFeatures, setAiFeatures] = useState("");
   const [generatingAi, setGeneratingAi] = useState(false);
   const [aiResult, setAiResult] = useState(null);
 
-  const generateAiContent = async () => {
+  const buildAiPrompt = () => {
+    const name = aiProductName.trim() || form.name.trim() || "Product";
+    const features = aiFeatures.trim() || form.description.trim() || aiPrompt.trim();
+
+    return `Product: ${name}\nFeatures:\n${features}\nExtra instructions: ${aiPrompt.trim()}`;
+  };
+
+  const generateAiContent = async (mode = "full") => {
     setGeneratingAi(true);
     setAiResult(null);
     try {
-      const data = await aiDraftMutation.mutateAsync(aiPrompt);
-      setAiResult(data);
+      const prompt = buildAiPrompt();
+      const data = mode === "full"
+        ? await aiDraftMutation.mutateAsync(prompt)
+        : await aiFieldMutation.mutateAsync({ field: mode, prompt });
+      setAiResult({ mode, ...data });
     } catch (err) {
       alert("Failed to generate content: " + (err.response?.data?.message || err.message));
     } finally {
@@ -72,15 +85,17 @@ export default function SellerProducts() {
 
     setForm({
       ...form,
-      name: aiResult.name || form.name,
+      name: aiResult.name || aiResult.title || form.name,
       price: aiResult.price || form.price,
       description: aiResult.description || form.description,
       category_id: matchedCatId || form.category_id,
-      tags: aiResult.tags || form.tags,
+      tags: aiResult.tags || (Array.isArray(aiResult.keywords) ? aiResult.keywords.join(", ") : form.tags),
     });
 
     setShowAiAssist(false);
     setAiPrompt("");
+    setAiProductName("");
+    setAiFeatures("");
     setAiResult(null);
   };
 
@@ -328,7 +343,8 @@ export default function SellerProducts() {
             </div>
             <button type="button" className="btn-generate-content" onClick={() => {
               if (form.name) {
-                setAiPrompt(`Details for ${form.name}`);
+                setAiProductName(form.name);
+                setAiFeatures(form.description || "");
               }
               setShowAiAssist(true);
             }}>
@@ -363,7 +379,8 @@ export default function SellerProducts() {
                           alert("Please enter a product name first to guide the description generation.");
                           return;
                         }
-                        setAiPrompt(`Provide details for: ${form.name}`);
+                        setAiProductName(form.name);
+                        setAiFeatures(form.description || "");
                         setShowAiAssist(true);
                       }}
                     >
@@ -520,51 +537,84 @@ export default function SellerProducts() {
             </div>
             
             <p style={{ fontSize: 13, color: "var(--muted)", margin: "0 0 14px 0" }}>
-              Describe your product (name, key traits, category) and the AI will draft optimized name, price, category, and description.
+              Enter a product and features. Generate the full listing, or only the title, description, or SEO keywords.
             </p>
+
+            <label style={{ display: "grid", gap: 6, marginBottom: 12 }}>
+              <span style={{ fontSize: 12, fontWeight: 800, color: "#475569" }}>Product</span>
+              <input
+                placeholder="Gaming Mouse"
+                value={aiProductName}
+                onChange={(e) => setAiProductName(e.target.value)}
+              />
+            </label>
+
+            <label style={{ display: "grid", gap: 6, marginBottom: 12 }}>
+              <span style={{ fontSize: 12, fontWeight: 800, color: "#475569" }}>Features</span>
+              <textarea
+                rows={4}
+                placeholder={"- RGB\n- Wireless\n- 16000 DPI"}
+                value={aiFeatures}
+                onChange={(e) => setAiFeatures(e.target.value)}
+                style={{ width: "100%", minHeight: 96 }}
+              />
+            </label>
 
             <textarea
               rows={3}
-              placeholder="e.g. Ergonomic Office Chair, high back support, breathable mesh, adjustable armrests..."
+              placeholder="Optional extra instructions: premium tone, target gamers, include warranty..."
               value={aiPrompt}
               onChange={(e) => setAiPrompt(e.target.value)}
-              style={{ width: "100%", marginBottom: 14, minHeight: 80 }}
+              style={{ width: "100%", marginBottom: 14, minHeight: 70 }}
             />
 
             <button
               type="button"
               className="btn-add-product"
               style={{ width: "100%", height: 44, display: "grid", placeItems: "center" }}
-              onClick={generateAiContent}
-              disabled={generatingAi || !aiPrompt.trim()}
+              onClick={() => generateAiContent("full")}
+              disabled={generatingAi}
             >
               {generatingAi ? "Generating listing..." : "✨ Generate Details"}
             </button>
+            <div className="ai-field-actions" style={{ marginTop: 10 }}>
+              <button type="button" className="btn-ai-generate-field" onClick={() => generateAiContent("title")} disabled={generatingAi}>Title</button>
+              <button type="button" className="btn-ai-generate-field" onClick={() => generateAiContent("description")} disabled={generatingAi}>Description</button>
+              <button type="button" className="btn-ai-generate-field" onClick={() => generateAiContent("seo")} disabled={generatingAi}>SEO Keywords</button>
+            </div>
 
             {aiResult && (
               <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 12, borderTop: "1px solid var(--border)", paddingTop: 16 }}>
-                <div className="ai-suggested-field">
-                  <strong style={{ display: "block", fontSize: 11, color: "#7c3aed", marginBottom: 2 }}>Suggested Title</strong>
-                  <span style={{ fontSize: 14, fontWeight: "600" }}>{aiResult.name}</span>
-                </div>
-                <div className="ai-suggested-field">
-                  <strong style={{ display: "block", fontSize: 11, color: "#7c3aed", marginBottom: 2 }}>Suggested Price</strong>
-                  <span style={{ fontSize: 14, fontWeight: "600" }}>${Number(aiResult.price || 0).toFixed(2)}</span>
-                </div>
-                <div className="ai-suggested-field">
-                  <strong style={{ display: "block", fontSize: 11, color: "#7c3aed", marginBottom: 2 }}>Recommended Category</strong>
-                  <span style={{ fontSize: 14, fontWeight: "600" }}>{aiResult.category_suggestion}</span>
-                </div>
+                {(aiResult.name || aiResult.title) && (
+                  <div className="ai-suggested-field">
+                    <strong style={{ display: "block", fontSize: 11, color: "#7c3aed", marginBottom: 2 }}>Suggested Title</strong>
+                    <span style={{ fontSize: 14, fontWeight: "600" }}>{aiResult.name || aiResult.title}</span>
+                  </div>
+                )}
+                {aiResult.price && (
+                  <div className="ai-suggested-field">
+                    <strong style={{ display: "block", fontSize: 11, color: "#7c3aed", marginBottom: 2 }}>Suggested Price</strong>
+                    <span style={{ fontSize: 14, fontWeight: "600" }}>${Number(aiResult.price || 0).toFixed(2)}</span>
+                  </div>
+                )}
+                {aiResult.category_suggestion && (
+                  <div className="ai-suggested-field">
+                    <strong style={{ display: "block", fontSize: 11, color: "#7c3aed", marginBottom: 2 }}>Recommended Category</strong>
+                    <span style={{ fontSize: 14, fontWeight: "600" }}>{aiResult.category_suggestion}</span>
+                  </div>
+                )}
                 {aiResult.tags && (
                   <div className="ai-suggested-field">
-                    <strong style={{ display: "block", fontSize: 11, color: "#7c3aed", marginBottom: 2 }}>Suggested Tags</strong>
+                    <strong style={{ display: "block", fontSize: 11, color: "#7c3aed", marginBottom: 2 }}>SEO Keywords</strong>
                     <span style={{ fontSize: 14, fontWeight: "600" }}>{aiResult.tags}</span>
                   </div>
                 )}
-                <div className="ai-suggested-field">
-                  <strong style={{ display: "block", fontSize: 11, color: "#7c3aed", marginBottom: 2 }}>Generated Description</strong>
-                  <div style={{ fontSize: 13, maxHeight: 120, overflowY: "auto", background: "white", padding: 8, borderRadius: 6, border: "1px solid var(--border)" }} dangerouslySetInnerHTML={{ __html: aiResult.description }} />
-                </div>
+                {aiResult.description && (
+                  <div className="ai-suggested-field">
+                    <strong style={{ display: "block", fontSize: 11, color: "#7c3aed", marginBottom: 2 }}>Generated Description</strong>
+                    <div style={{ fontSize: 13, maxHeight: 120, overflowY: "auto", background: "white", padding: 8, borderRadius: 6, border: "1px solid var(--border)" }} dangerouslySetInnerHTML={{ __html: aiResult.description }} />
+                  </div>
+                )}
 
                 <button
                   type="button"

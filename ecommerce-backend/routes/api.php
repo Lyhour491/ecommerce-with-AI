@@ -43,6 +43,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/user/profile', [AuthController::class, 'updateProfile']);
     Route::put('/user/password', [AuthController::class, 'updatePassword']);
     Route::post('/logout', [AuthController::class, 'logout']);
+    Route::get('/recommendations/for-you', [ProductController::class, 'recommendedForYou']);
     Route::post('/seller/apply', [UserController::class, 'applySeller']);
     Route::patch('/orders/{order}/status', [OrderController::class, 'updateStatus']);
     Route::get('/notifications', [NotificationController::class, 'index']);
@@ -96,11 +97,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/ai/product-description', [AiController::class, 'generateProductDescription']);
         Route::post('/ai/product-category', [AiController::class, 'suggestProductCategory']);
         Route::post('/ai/product-tags', [AiController::class, 'generateProductTags']);
+        Route::post('/ai/seo-keywords', [AiController::class, 'generateSeoKeywords']);
         Route::post('/ai/product-price', [AiController::class, 'suggestProductPrice']);
 
         Route::get('/payouts', [PayoutController::class, 'sellerIndex']);
         Route::post('/payouts', [PayoutController::class, 'sellerStore']);
         Route::get('/ai-insights', [AiController::class, 'sellerInsights']);
+        Route::get('/ai/review-sentiment', [AiController::class, 'reviewSentiment']);
     });
 
 

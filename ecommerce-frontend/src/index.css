@@ -6363,6 +6363,168 @@ select:focus {
   line-height: 1.45;
 }
 
+.ai-field-actions {
+  display: grid;
+  grid-template-columns: 1fr repeat(3, auto);
+  gap: 8px;
+}
+
+.ai-field-actions .btn-ai-generate-field {
+  min-height: 40px;
+  white-space: nowrap;
+}
+
+.ai-sales-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.ai-sales-summary-card {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  display: grid;
+  gap: 6px;
+  padding: 18px;
+}
+
+.ai-sales-summary-card svg {
+  color: #2563eb;
+}
+
+.ai-sales-summary-card span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.ai-sales-summary-card strong {
+  color: #0f172a;
+  font-size: 22px;
+  font-weight: 900;
+}
+
+.ai-sentiment-panel {
+  background: #ffffff;
+  display: grid;
+  gap: 18px;
+  margin-top: 20px;
+  padding: 22px;
+}
+
+.ai-sentiment-panel h2 {
+  align-items: center;
+  color: #0f172a;
+  display: flex;
+  font-size: 18px;
+  gap: 8px;
+  margin: 0 0 6px;
+}
+
+.ai-sentiment-panel p {
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.ai-sentiment-score {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.ai-sentiment-score svg {
+  color: #f59e0b;
+  fill: #f59e0b;
+}
+
+.ai-sentiment-score strong {
+  color: #0f172a;
+  font-size: 24px;
+}
+
+.ai-sentiment-score span {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.ai-sentiment-bars {
+  display: grid;
+  gap: 8px;
+}
+
+.ai-sentiment-bars span {
+  color: #334155;
+  display: flex;
+  font-size: 12px;
+  font-weight: 800;
+  justify-content: space-between;
+}
+
+.ai-sentiment-bars i {
+  background: #f1f5f9;
+  border-radius: 999px;
+  display: block;
+  height: 8px;
+  overflow: hidden;
+}
+
+.ai-sentiment-bars em {
+  background: #22c55e;
+  border-radius: inherit;
+  display: block;
+  height: 100%;
+}
+
+.ai-sentiment-bars em.negative {
+  background: #ef4444;
+}
+
+.ai-sentiment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ai-sentiment-actions strong,
+.ai-sentiment-actions span {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 8px 10px;
+}
+
+.ai-sentiment-actions strong {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+}
+
+@media (max-width: 900px) {
+  .ai-sales-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ai-field-actions {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .ai-sales-summary-grid,
+  .ai-field-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 640px) {
   .nav-notification-menu {
     position: fixed;
@@ -7907,11 +8069,49 @@ select:focus {
   margin-bottom: 32px;
 }
 
+.dashboard-rec-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 18px;
+}
+
 .dashboard-rec-title {
   font-size: 18px;
   font-weight: 700;
   color: #0f172a;
-  margin: 0 0 20px 0;
+  margin: 0;
+}
+
+.dashboard-rec-heading p {
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 5px 0 0;
+}
+
+.dashboard-rec-basis {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.dashboard-rec-basis span {
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 7px 10px;
+  white-space: nowrap;
+}
+
+.dashboard-rec-basis span.active {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
 }
 
 .dashboard-rec-grid {
@@ -7947,6 +8147,11 @@ select:focus {
 .dashboard-rec-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.05);
+}
+
+.dashboard-rec-card.loading {
+  cursor: progress;
+  opacity: 0.75;
 }
 
 .dashboard-rec-media {
@@ -7986,10 +8191,33 @@ select:focus {
   min-height: 38px;
 }
 
+.dashboard-rec-reason {
+  color: #64748b;
+  display: -webkit-box;
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 0;
+  min-height: 34px;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
 .dashboard-rec-price {
   font-size: 14px;
   font-weight: 800;
   color: #2563eb;
+}
+
+@media (max-width: 760px) {
+  .dashboard-rec-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .dashboard-rec-basis {
+    justify-content: flex-start;
+  }
 }
 
 .dashboard-back-btn {

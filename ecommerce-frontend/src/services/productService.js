@@ -12,6 +12,11 @@ export const productService = {
     return data?.categories || data?.data || [];
   },
 
+  recommendedForYou: async (limit = 8) => {
+    const { data } = await api.get("/recommendations/for-you", { params: { limit } });
+    return data;
+  },
+
   createSellerProduct: async (formData) => {
     const { data } = await api.post("/seller/products", formData);
     return data;

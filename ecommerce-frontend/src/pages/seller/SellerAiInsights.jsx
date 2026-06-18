@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
-import { Sparkles, TrendingUp, DollarSign, AlertCircle } from "lucide-react";
-import api from "../../api/axios";
+import { useEffect, useState } from "react";
+import { AlertCircle, BarChart3, DollarSign, MessageSquare, Package, Sparkles, Star, TrendingUp } from "lucide-react";
+import { aiService } from "../../services/aiService";
+import { money } from "../../utils/store";
 
 export default function SellerAiInsights() {
   const [insights, setInsights] = useState([]);
@@ -11,9 +12,8 @@ export default function SellerAiInsights() {
     setLoading(true);
     setError("");
     try {
-      const res = await api.get("/seller/ai-insights");
-      const list = Array.isArray(res.data?.insights) ? res.data.insights : [];
-      setInsights(list);
+      const data = await aiService.sellerInsights();
+      setInsights(data);
     } catch (err) {
       setError("Failed to load AI recommendations.");
       console.error("AI Insights fetch failed", err);
@@ -25,6 +25,10 @@ export default function SellerAiInsights() {
   useEffect(() => {
     loadInsights();
   }, []);
+
+  const insightList = Array.isArray(insights?.insights) ? insights.insights : [];
+  const summary = insights?.summary || {};
+  const sentiment = insights?.review_sentiment || {};
 
   const getIcon = (color) => {
     if (color === "green") return <DollarSign size={20} />;
@@ -56,15 +60,48 @@ export default function SellerAiInsights() {
 
         {loading ? (
           <div className="seller-loading" style={{ marginTop: 24 }}>Loading AI Recommendations...</div>
-        ) : insights.length === 0 ? (
+        ) : insightList.length === 0 ? (
           <div className="card" style={{ padding: "40px 20px", textAlign: "center", background: "white", marginTop: 24 }}>
             No recommendations generated. Add more products and complete transactions to train the AI model.
           </div>
         ) : (
-          /* Core Insights List */
-          <div style={{ display: "grid", gap: 24, marginTop: 24 }}>
-            {insights.map((insight) => (
-              <div className="card" key={insight.id} style={{ background: "white", padding: 26, position: "relative" }}>
+          <>
+            <div className="ai-sales-summary-grid">
+              <div className="ai-sales-summary-card"><DollarSign size={18} /><span>Revenue</span><strong>{money(summary.revenue || 0)}</strong></div>
+              <div className="ai-sales-summary-card"><Package size={18} /><span>Units Sold</span><strong>{summary.units_sold || 0}</strong></div>
+              <div className="ai-sales-summary-card"><BarChart3 size={18} /><span>Conversion</span><strong>{summary.conversion_rate || 0}%</strong></div>
+              <div className="ai-sales-summary-card"><AlertCircle size={18} /><span>Low Stock</span><strong>{summary.low_stock_count || 0}</strong></div>
+            </div>
+
+            <div className="ai-sentiment-panel card">
+              <div>
+                <h2><MessageSquare size={18} /> AI Review Sentiment Analysis</h2>
+                <p>{sentiment.summary || "Review sentiment will appear after customers leave reviews."}</p>
+              </div>
+              <div className="ai-sentiment-score">
+                <Star size={18} />
+                <strong>{sentiment.average_rating || 0}</strong>
+                <span>{sentiment.total_reviews || 0} reviews</span>
+              </div>
+              <div className="ai-sentiment-bars">
+                <span>Positive <b>{sentiment.positive_percent || 0}%</b></span>
+                <i><em style={{ width: `${sentiment.positive_percent || 0}%` }} /></i>
+                <span>Neutral <b>{sentiment.neutral_percent || 0}%</b></span>
+                <i><em style={{ width: `${sentiment.neutral_percent || 0}%` }} /></i>
+                <span>Negative <b>{sentiment.negative_percent || 0}%</b></span>
+                <i><em className="negative" style={{ width: `${sentiment.negative_percent || 0}%` }} /></i>
+              </div>
+              {Array.isArray(sentiment.actions) && sentiment.actions.length > 0 && (
+                <div className="ai-sentiment-actions">
+                  <strong>Suggested actions</strong>
+                  {sentiment.actions.slice(0, 3).map((action, idx) => <span key={idx}>{action}</span>)}
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: "grid", gap: 24, marginTop: 24 }}>
+            {insightList.map((insight) => (
+              <div className="card" key={insight.id || insight.title} style={{ background: "white", padding: 26, position: "relative" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 16 }}>
                   <div style={{ display: "flex", gap: 16 }}>
                     <div className={`metric-icon ${insight.color || "blue"}`} style={{ width: 44, height: 44, borderRadius: 12, marginTop: 4 }}>
@@ -93,7 +130,8 @@ export default function SellerAiInsights() {
                 </div>
               </div>
             ))}
-          </div>
+            </div>
+          </>
         )}
 
         {/* Bottom Panel: General Advice */}

@@ -12,10 +12,14 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Cache;
 use App\Repositories\ProductRepository;
+use App\Services\PersonalizedRecommendationService;
 
 class ProductController extends Controller
 {
-    public function __construct(private ProductRepository $products)
+    public function __construct(
+        private ProductRepository $products,
+        private PersonalizedRecommendationService $recommendations,
+    )
     {
     }
 
@@ -153,6 +157,13 @@ class ProductController extends Controller
         });
 
         return response()->json($topProducts);
+    }
+
+    public function recommendedForYou(Request $request)
+    {
+        return response()->json(
+            $this->recommendations->forUser($request->user(), (int) $request->integer('limit', 8))
+        );
     }
 
     public function store(Request $request)

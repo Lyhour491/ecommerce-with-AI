@@ -15,6 +15,7 @@ export function useAiProductField() {
         description: aiService.generateDescription,
         category: aiService.suggestCategory,
         tags: aiService.generateTags,
+        seo: aiService.generateSeoKeywords,
         price: aiService.suggestPrice,
       };
 

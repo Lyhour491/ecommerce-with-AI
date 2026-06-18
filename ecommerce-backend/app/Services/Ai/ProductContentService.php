@@ -47,16 +47,26 @@ class ProductContentService
 
     public function title(string $prompt): array
     {
-        $draft = $this->draft($prompt);
+        $result = $this->geminiService->generateContent(
+            "Create one high-converting ecommerce product title from these product details:\n{$prompt}",
+            "Return ONLY valid JSON: {\"title\":\"Premium Wireless RGB Gaming Mouse\"}. Keep the title under 70 characters, clear, searchable, and not spammy.",
+            true
+        );
+        $result = is_array($result) ? $result : [];
 
-        return ['title' => $draft['title']];
+        return ['title' => $result['title'] ?? $this->draft($prompt)['title']];
     }
 
     public function description(string $prompt): array
     {
-        $draft = $this->draft($prompt);
+        $result = $this->geminiService->generateContent(
+            "Write a practical ecommerce product description from these product details:\n{$prompt}",
+            "Return ONLY valid JSON: {\"description\":\"<p>Experience precision gaming...</p>\"}. Use clean HTML, 1 short intro paragraph, then 3-5 benefit bullets. Avoid fake claims.",
+            true
+        );
+        $result = is_array($result) ? $result : [];
 
-        return ['description' => $draft['description']];
+        return ['description' => $result['description'] ?? $this->draft($prompt)['description']];
     }
 
     public function category(string $prompt): array
@@ -71,6 +81,27 @@ class ProductContentService
         $draft = $this->draft($prompt);
 
         return ['tags' => $draft['tags']];
+    }
+
+    public function seoKeywords(string $prompt): array
+    {
+        $result = $this->geminiService->generateContent(
+            "Generate buyer-search SEO keywords for this ecommerce product:\n{$prompt}",
+            "Return ONLY valid JSON: {\"keywords\":[\"wireless gaming mouse\",\"rgb mouse\",\"16000 dpi mouse\"],\"tags\":\"wireless gaming mouse, rgb mouse, 16000 dpi mouse\"}. Include 8-12 useful search phrases, no duplicates.",
+            true
+        );
+        $result = is_array($result) ? $result : [];
+
+        $keywords = $result['keywords'] ?? [];
+        if (!is_array($keywords) || count($keywords) === 0) {
+            $tags = $this->draft($prompt)['tags'];
+            $keywords = array_values(array_filter(array_map('trim', explode(',', $tags))));
+        }
+
+        return [
+            'keywords' => $keywords,
+            'tags' => $result['tags'] ?? implode(', ', $keywords),
+        ];
     }
 
     public function price(string $prompt): array
