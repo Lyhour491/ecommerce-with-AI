@@ -29,6 +29,8 @@ export default function SellerAiInsights() {
   const insightList = Array.isArray(insights?.insights) ? insights.insights : [];
   const summary = insights?.summary || {};
   const sentiment = insights?.review_sentiment || {};
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const hasLowStock = Number(summary.low_stock_count || 0) > 0;
 
   const getIcon = (color) => {
     if (color === "green") return <DollarSign size={20} />;
@@ -45,8 +47,8 @@ export default function SellerAiInsights() {
           <h1>AI-Powered Analytics</h1>
         </div>
         <div className="merchant-top-actions">
-          <span>AI Model Accuracy: <b>98.4%</b></span>
-          <div className="mini-profile">S</div>
+          <span>Data Source: <b>Live Store Data</b></span>
+          <div className="mini-profile">{(user?.name || "S").charAt(0).toUpperCase()}</div>
         </div>
       </div>
 
@@ -142,7 +144,9 @@ export default function SellerAiInsights() {
           <div>
             <h3 style={{ margin: "0 0 4px", fontSize: 16 }}>Maximize Your Marketplace Visibility</h3>
             <p style={{ margin: 0, color: "#475569", fontSize: 14 }}>
-              Stores that keep zero out-of-stock items have a <b>3.5x higher</b> catalog placement rate in search recommendations. Check your inventory weekly to maintain steady sales velocity.
+              {hasLowStock
+                ? `You currently have ${summary.low_stock_count} low-stock product${Number(summary.low_stock_count) === 1 ? "" : "s"}. Restock priority items to protect search visibility and completed sales.`
+                : `Your catalog currently has ${summary.products_count || 0} active product${Number(summary.products_count || 0) === 1 ? "" : "s"} and no low-stock alerts in the live summary.`}
             </p>
           </div>
         </div>

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { 
-  Edit3, Filter, MoreVertical, Search, ShieldCheck, 
+  Edit3, Search, ShieldCheck, 
   ShoppingBag, UserCheck, Users, X, Mail, Phone, MapPin, Clock, 
   CreditCard, Eye, CheckCircle2, XCircle, Store
 } from "lucide-react";
@@ -274,22 +274,22 @@ function AdminCustomers() {
                 </button>
               ))}
             </div>
-            <div className="table-tools"><Filter size={17} /><MoreVertical size={18} /></div>
           </div>
 
           <div className="product-like-table-wrap">
             {tab === "applications" ? (
               <div className="admin-app-cards-list">
                 {filteredApplications.length ? filteredApplications.map((app) => {
-                  const dateStr = app.created_at ? new Date(app.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Jan 5, 2026";
+                  const dateStr = app.created_at ? new Date(app.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Date unavailable";
+                  const address = [app.business_address, app.business_city, app.business_state, app.business_zip].filter(Boolean).join(", ");
                   return (
                     <div className="admin-app-card" key={app.id}>
                       <div className="app-card-left">
                         <span className="app-card-icon-round"><Store size={22} /></span>
                         <div className="app-card-body">
                           <div className="app-card-title-row">
-                            <h3>{app.shop_name || "Artisan Studio"}</h3>
-                            <span className="app-category-badge">{app.shop_category || "Electronics"}</span>
+                            <h3>{app.shop_name || "Unnamed store"}</h3>
+                            <span className="app-category-badge">{app.shop_category || "Not provided"}</span>
                             <span className="app-date-badge"><Clock size={12} /> {dateStr}</span>
                           </div>
                           <p className="app-desc">{app.shop_description || "No description provided."}</p>
@@ -298,13 +298,13 @@ function AdminCustomers() {
                               <Mail size={14} /> <span>{app.email}</span>
                             </div>
                             <div className="app-detail-item">
-                              <Phone size={14} /> <span>{app.business_phone || "+1 (555) 234-5678"}</span>
+                              <Phone size={14} /> <span>{app.business_phone || "Not provided"}</span>
                             </div>
                             <div className="app-detail-item">
-                              <MapPin size={14} /> <span>{app.business_address || "789 Tech Ave."}, {app.business_city || "San Francisco"}, {app.business_state || "CA"} {app.business_zip || "94103"}</span>
+                              <MapPin size={14} /> <span>{address || "Not provided"}</span>
                             </div>
                             <div className="app-detail-item">
-                              <CreditCard size={14} /> <span>Tax ID: {app.tax_id || "12-3456789"}</span>
+                              <CreditCard size={14} /> <span>Tax ID: {app.tax_id || "Not provided"}</span>
                             </div>
                           </div>
                         </div>

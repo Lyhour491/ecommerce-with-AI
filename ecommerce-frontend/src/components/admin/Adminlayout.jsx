@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -9,11 +10,48 @@ import {
   DollarSign,
   AlertTriangle,
   LogOut,
+  Home,
 } from "lucide-react";
 import { authStore } from "../../store/authStore";
+import api from "../../api/axios";
+import { unwrapUser } from "../../utils/store";
+
+function getAccountAvatar(user) {
+  return (
+    user?.avatar_url ||
+    user?.profile_photo_url ||
+    user?.avatar ||
+    `https://i.pravatar.cc/96?u=${encodeURIComponent(user?.email || user?.id || "admin")}`
+  );
+}
+
+function getAccountLabel(user) {
+  const role = String(user?.role || "admin").toLowerCase();
+  if (role === "admin") return "Enterprise Admin";
+  if (role === "seller") return user?.shop_name || user?.store_name || "Seller Account";
+  return "Customer Account";
+}
 
 export default function AdminLayout() {
   const navigate = useNavigate();
+  const [user, setUser] = useState(() => authStore.getUser() || { name: "Admin", role: "admin" });
+
+  useEffect(() => {
+    let isMounted = true;
+
+    api.get("/user")
+      .then((response) => {
+        const account = unwrapUser(response.data);
+        if (!isMounted || !account) return;
+        authStore.setUser(account);
+        setUser(account);
+      })
+      .catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const logout = () => {
     authStore.logout();
@@ -43,14 +81,18 @@ export default function AdminLayout() {
 
         <div className="merchant-user-card">
           <img
-            src="https://i.pravatar.cc/96?img=12"
-            alt="Alex Merchant"
+            src={getAccountAvatar(user)}
+            alt={user?.name || "Admin"}
           />
           <div>
-            <p>Alex Merchant</p>
-            <span>Store Owner</span>
+            <p>{user?.name || "Admin"}</p>
+            <span>{getAccountLabel(user)}</span>
           </div>
         </div>
+        <button type="button" className="dashboard-home-btn" onClick={() => navigate("/")}>
+          <Home size={18} />
+          <span>Back to Store</span>
+        </button>
         <button type="button" className="admin-logout-btn" onClick={logout}>
           <LogOut size={18} />
           <span>Logout</span>

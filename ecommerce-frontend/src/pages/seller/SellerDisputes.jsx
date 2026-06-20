@@ -42,7 +42,8 @@ export default function SellerDisputes() {
   // Fetch messages dynamically when selected chat order changes
   useEffect(() => {
     if (selectedChatOrder && !selectedChatOrder.isMock) {
-      api.get(`/orders/${selectedChatOrder.orderId}/messages`)
+      const endpoint = selectedChatOrder.dbId ? `/disputes/${selectedChatOrder.dbId}/messages` : `/orders/${selectedChatOrder.orderId}/messages`;
+      api.get(endpoint)
         .then((res) => {
           setChatMessages(res.data || []);
         })
@@ -55,8 +56,9 @@ export default function SellerDisputes() {
   // Helper to send seller message
   const handleSendMessage = (orderId) => {
     if (!chatInput.trim()) return;
-    
-    api.post(`/orders/${orderId}/messages`, { text: chatInput })
+
+    const endpoint = selectedChatOrder?.dbId ? `/disputes/${selectedChatOrder.dbId}/messages` : `/orders/${orderId}/messages`;
+    api.post(endpoint, { text: chatInput })
       .then(() => {
         setChatInput("");
         setChatTrigger((t) => t + 1);
@@ -65,16 +67,35 @@ export default function SellerDisputes() {
       .catch((err) => console.error("Failed to send message", err));
   };
 
+  const updateDisputeStatus = async (status) => {
+    if (!selectedChatOrder?.dbId) return;
+    await api.patch(`/disputes/${selectedChatOrder.dbId}/status`, { status });
+    setSelectedChatOrder((item) => ({ ...item, status }));
+    setChatTrigger((t) => t + 1);
+    loadData();
+  };
+
+  const requestRefundReview = async () => {
+    if (!selectedChatOrder?.dbId) return;
+    await api.post(`/disputes/${selectedChatOrder.dbId}/request-refund`);
+    setSelectedChatOrder((item) => ({ ...item, sellerRequestedRefund: true }));
+    setChatTrigger((t) => t + 1);
+    loadData();
+  };
+
   // Build list of disputes/inquiries from database records only.
   const disputesList = useMemo(() => {
     const disputeRows = disputes.map((dispute) => ({
       id: dispute.display_id || `DSP-${String(dispute.id).padStart(4, "0")}`,
+      dbId: dispute.id,
       orderId: dispute.order_id,
       customerName: dispute.customer_name || "Customer",
       orderNumber: dispute.order_number || `ORD-${String(dispute.order_id).padStart(6, "0")}`,
       reason: dispute.reason || "General dispute",
+      productName: dispute.product_name || "",
       amount: Number(dispute.amount || 0),
       status: dispute.status || "pending",
+      sellerRequestedRefund: Boolean(dispute.seller_requested_refund),
       date: dispute.date || (dispute.created_at ? new Date(dispute.created_at).toLocaleDateString() : "-"),
     }));
 
@@ -212,7 +233,10 @@ export default function SellerDisputes() {
                       <td style={{ padding: 12 }}><strong>{dispute.id}</strong></td>
                       <td style={{ padding: 12 }}><strong>{dispute.orderNumber}</strong></td>
                       <td style={{ padding: 12 }}>{dispute.customerName}</td>
-                      <td style={{ padding: 12 }}>{dispute.reason}</td>
+                      <td style={{ padding: 12 }}>
+                        <strong>{dispute.productName || dispute.reason}</strong>
+                        {dispute.productName && <span style={{ display: "block", color: "#64748b", fontSize: 12 }}>{dispute.reason}</span>}
+                      </td>
                       <td style={{ padding: 12 }}><strong>{money(dispute.amount)}</strong></td>
                       <td style={{ padding: 12 }}>
                         <span className={`status ${dispute.status === "resolved" ? "delivered" : "pending"}`}>
@@ -332,38 +356,50 @@ export default function SellerDisputes() {
               padding: 16,
               borderTop: "1px solid #e2e8f0",
               backgroundColor: "#ffffff",
-              display: "flex",
-              gap: 8
+              display: "grid",
+              gap: 10
             }}>
-              <input 
-                type="text" 
-                placeholder="Type your message to buyer..."
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
+              {selectedChatOrder.dbId && selectedChatOrder.status === "pending" && (
+                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                  <button type="button" className="btn-secondary" onClick={() => updateDisputeStatus("resolved")} style={{ height: 36, padding: "0 12px" }}>
+                    Mark Resolved
+                  </button>
+                  <button type="button" className="btn-secondary" onClick={requestRefundReview} disabled={selectedChatOrder.sellerRequestedRefund} style={{ height: 36, padding: "0 12px" }}>
+                    {selectedChatOrder.sellerRequestedRefund ? "Refund Requested" : "Request Refund Review"}
+                  </button>
+                </div>
+              )}
+              <div style={{ display: "flex", gap: 8 }}>
+                <input 
+                  type="text" 
+                  placeholder="Type your message to buyer..."
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleSendMessage(selectedChatOrder.orderId);
+                    }
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: "10px 14px",
+                    borderRadius: 8,
+                    border: "1px solid #cbd5e1",
+                    fontSize: 14,
+                    outline: "none"
+                  }}
+                />
+                <button 
+                  onClick={() => {
                     handleSendMessage(selectedChatOrder.orderId);
-                  }
-                }}
-                style={{
-                  flex: 1,
-                  padding: "10px 14px",
-                  borderRadius: 8,
-                  border: "1px solid #cbd5e1",
-                  fontSize: 14,
-                  outline: "none"
-                }}
-              />
-              <button 
-                onClick={() => {
-                  handleSendMessage(selectedChatOrder.orderId);
-                }}
-                className="orders-btn-primary"
-                style={{ padding: "10px 16px", borderRadius: 8, height: "auto", display: "flex", alignItems: "center", gap: 6 }}
-              >
-                <Send size={14} />
-                <span>Send</span>
-              </button>
+                  }}
+                  className="orders-btn-primary"
+                  style={{ padding: "10px 16px", borderRadius: 8, height: "auto", display: "flex", alignItems: "center", gap: 6 }}
+                >
+                  <Send size={14} />
+                  <span>Send</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -51,19 +51,13 @@ function UserSettings() {
   // Addresses state
   const [addresses, setAddresses] = useState(() => {
     const saved = localStorage.getItem("settings_addresses");
-    return saved ? JSON.parse(saved) : [
-      { id: 1, type: "home", title: "Home Address", name: "John Doe", phone: "+1 (555) 019-2834", line1: "123 Market St", line2: "Apt 4B", city: "San Francisco", state: "CA", zip: "94103", country: "United States", isDefault: true },
-      { id: 2, type: "work", title: "Work Office", name: "John Doe", phone: "+1 (555) 019-5821", line1: "500 Howard St", line2: "Floor 3", city: "San Francisco", state: "CA", zip: "94105", country: "United States", isDefault: false }
-    ];
+    return saved ? JSON.parse(saved) : [];
   });
 
   // Cards state
   const [cards, setCards] = useState(() => {
     const saved = localStorage.getItem("settings_cards");
-    return saved ? JSON.parse(saved) : [
-      { id: 1, type: "visa", brand: "Visa", name: "John Doe", number: "•••• •••• •••• 4242", exp: "12/26", isDefault: true },
-      { id: 2, type: "mastercard", brand: "Mastercard", name: "John Doe", number: "•••• •••• •••• 5555", exp: "08/28", isDefault: false }
-    ];
+    return saved ? JSON.parse(saved) : [];
   });
 
   // Alerts state
@@ -473,7 +467,7 @@ function UserSettings() {
                       <input 
                         value={profile.phone} 
                         onChange={(e) => setProfile({ ...profile, phone: e.target.value })} 
-                        placeholder="+1 (555) 019-2834" 
+                        placeholder="Phone number" 
                       />
                     </div>
                   </label>
@@ -866,7 +860,7 @@ function UserSettings() {
                   <input 
                     value={addressForm.name} 
                     onChange={(e) => setAddressForm({ ...addressForm, name: e.target.value })} 
-                    placeholder="John Doe" 
+                    placeholder="Full name" 
                     required 
                     style={{ border: "1px solid #cbd5e1", borderRadius: 8, padding: "8px 12px" }}
                   />
@@ -879,7 +873,7 @@ function UserSettings() {
                   <input 
                     value={addressForm.phone} 
                     onChange={(e) => setAddressForm({ ...addressForm, phone: e.target.value })} 
-                    placeholder="+1 (555) 019-2834" 
+                    placeholder="Phone number" 
                     required 
                     style={{ border: "1px solid #cbd5e1", borderRadius: 8, padding: "8px 12px" }}
                   />
@@ -925,7 +919,7 @@ function UserSettings() {
                   <input 
                     value={addressForm.city} 
                     onChange={(e) => setAddressForm({ ...addressForm, city: e.target.value })} 
-                    placeholder="San Francisco" 
+                    placeholder="City" 
                     required 
                     style={{ border: "1px solid #cbd5e1", borderRadius: 8, padding: "8px 12px" }}
                   />
@@ -935,7 +929,7 @@ function UserSettings() {
                   <input 
                     value={addressForm.state} 
                     onChange={(e) => setAddressForm({ ...addressForm, state: e.target.value })} 
-                    placeholder="CA" 
+                    placeholder="State" 
                     required 
                     style={{ border: "1px solid #cbd5e1", borderRadius: 8, padding: "8px 12px" }}
                   />
@@ -948,7 +942,7 @@ function UserSettings() {
                   <input 
                     value={addressForm.zip} 
                     onChange={(e) => setAddressForm({ ...addressForm, zip: e.target.value })} 
-                    placeholder="94103" 
+                    placeholder="Postal code" 
                     required 
                     style={{ border: "1px solid #cbd5e1", borderRadius: 8, padding: "8px 12px" }}
                   />
@@ -1017,7 +1011,7 @@ function UserSettings() {
                 <input 
                   value={cardForm.name} 
                   onChange={(e) => setCardForm({ ...cardForm, name: e.target.value })} 
-                  placeholder="John Doe" 
+                  placeholder="Full name" 
                   required 
                   style={{ border: "1px solid #cbd5e1", borderRadius: 8, padding: "8px 12px" }}
                 />

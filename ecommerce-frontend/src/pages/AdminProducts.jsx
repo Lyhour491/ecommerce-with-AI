@@ -4,9 +4,7 @@ import {
   Archive,
   CheckCircle,
   Edit3,
-  Filter,
   FolderPlus,
-  MoreVertical,
   Package,
   Search,
   ShieldCheck,
@@ -367,7 +365,6 @@ function AdminProducts() {
                 <button key={item.id} className={tab === item.id ? "active" : ""} onClick={() => setTab(item.id)}>{item.label}</button>
               ))}
             </div>
-            <div className="table-tools"><Filter size={17} /><MoreVertical size={18} /></div>
           </div>
 
           <div className="product-like-table-wrap">

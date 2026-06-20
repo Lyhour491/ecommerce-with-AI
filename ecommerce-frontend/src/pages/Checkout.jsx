@@ -427,30 +427,64 @@ function Checkout() {
           {/* STEP 3: REVIEW */}
           {step === 3 && (
             <div className="checkout-card">
-              <h2>Review Your Order</h2>
-              <p className="page-subtitle" style={{ marginBottom: 20 }}>Double check your shipping and billing specifications before finalizing.</p>
-              
-              <div style={{ display: "grid", gap: 20, borderBottom: "1px solid var(--border)", paddingBottom: 20, marginBottom: 20 }}>
+              <div className="checkout-review-head">
                 <div>
-                  <strong style={{ display: "block", color: "var(--text)", marginBottom: 6 }}>Shipping Destination:</strong>
-                  <p style={{ margin: 0, color: "var(--muted)" }}>
-                    {form.first_name} {form.last_name}<br />
-                    {form.street_address}, {form.city}, {form.state} {form.zip_code}<br />
-                    Phone: {form.phone} | Email: {form.email}
-                  </p>
+                  <h2>Review Your Order</h2>
+                  <p>Confirm the delivery, contact, and payment details before placing your order.</p>
                 </div>
-                <div>
-                  <strong style={{ display: "block", color: "var(--text)", marginBottom: 6 }}>Selected Shipping Method:</strong>
-                  <p style={{ margin: 0, color: "var(--muted)" }}>
-                    {form.shipping_method === "express" ? "Express Delivery (1-2 business days, $15.00)" : "Standard Delivery (3-5 business days, Free)"}
-                  </p>
-                </div>
-                <div>
-                  <strong style={{ display: "block", color: "var(--text)", marginBottom: 6 }}>Payment Method Selected:</strong>
-                  <p style={{ margin: 0, color: "var(--muted)" }}>
-                    {form.payment_method === "cash_on_delivery" ? "Cash on Delivery" : `Test Credit Card (Ending in ${form.card_number.slice(-4)})`}
-                  </p>
-                </div>
+              </div>
+
+              <div className="checkout-review-list">
+                <section className="checkout-review-block">
+                  <span className="checkout-review-index">1</span>
+                  <div>
+                    <h3>Shipping Destination</h3>
+                    <p className="checkout-review-primary">{form.first_name} {form.last_name}</p>
+                    <p>{[form.street_address, form.city, form.state, form.zip_code].filter(Boolean).join(", ")}</p>
+                  </div>
+                </section>
+
+                <section className="checkout-review-block">
+                  <span className="checkout-review-index">2</span>
+                  <div>
+                    <h3>Contact Information</h3>
+                    <div className="checkout-review-pair">
+                      <span>Phone</span>
+                      <strong>{form.phone}</strong>
+                    </div>
+                    <div className="checkout-review-pair">
+                      <span>Email</span>
+                      <strong>{form.email}</strong>
+                    </div>
+                  </div>
+                </section>
+
+                <section className="checkout-review-block">
+                  <span className="checkout-review-index">3</span>
+                  <div>
+                    <h3>Shipping Method</h3>
+                    <p className="checkout-review-primary">
+                      {form.shipping_method === "express" ? "Express Delivery" : "Standard Delivery"}
+                    </p>
+                    <p>{form.shipping_method === "express" ? "1-2 business days, $15.00" : "3-5 business days, Free"}</p>
+                  </div>
+                </section>
+
+                <section className="checkout-review-block">
+                  <span className="checkout-review-index">4</span>
+                  <div>
+                    <h3>Payment Method</h3>
+                    <p className="checkout-review-primary">
+                      {form.payment_method === "cash_on_delivery" ? "Cash on Delivery" : "Test Credit Card"}
+                    </p>
+                    <p>{form.payment_method === "cash_on_delivery" ? "Pay when the order arrives" : `Ending in ${form.card_number.slice(-4)}`}</p>
+                  </div>
+                </section>
+              </div>
+
+              <div className="checkout-review-note">
+                <span>Review</span>
+                <p>Your order total is shown on the right. You can still go back to payment if anything needs correction.</p>
               </div>
 
               <div style={{ display: "flex", justifyContent: "space-between", marginTop: 28 }}>

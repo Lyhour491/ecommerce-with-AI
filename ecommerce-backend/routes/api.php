@@ -51,6 +51,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::patch('/notifications/{notification}/read', [NotificationController::class, 'markAsRead']);
     Route::get('/disputes', [DisputeController::class, 'index']);
+    Route::get('/disputes/{dispute}/messages', [DisputeController::class, 'messages']);
+    Route::post('/disputes/{dispute}/messages', [DisputeController::class, 'storeMessage']);
+    Route::patch('/disputes/{dispute}/status', [DisputeController::class, 'updateStatus']);
+    Route::post('/disputes/{dispute}/request-refund', [DisputeController::class, 'requestRefund']);
     Route::post('/orders/{order}/disputes', [DisputeController::class, 'store']);
 
     // ── Admin routes ────────────────────────────────────────────────────

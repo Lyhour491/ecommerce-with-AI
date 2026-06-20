@@ -131,12 +131,32 @@ class SellerProductController extends Controller
 
         $totalSold = (int) ($orderItemStats->total_sold ?? 0);
         $totalRevenue = (float) ($orderItemStats->total_revenue ?? 0);
+        $sellerProductIds = Product::where('user_id', $sellerId)->pluck('id');
+        $sellerOrders = \App\Models\Order::whereHas('orderItems.product', function ($query) use ($sellerId) {
+            $query->where('user_id', $sellerId);
+        });
+        $ordersCount = (clone $sellerOrders)->count();
+        $completedOrders = (clone $sellerOrders)
+            ->whereIn('status', ['delivered', 'completed'])
+            ->count();
+        $averageRating = (float) \App\Models\Review::whereIn('product_id', $sellerProductIds)->avg('rating');
+        $lowStockCount = Product::where('user_id', $sellerId)->where('stock', '<=', 5)->count();
+        $disputesCount = \App\Models\Dispute::whereHas('product', function ($query) use ($sellerId) {
+            $query->where('user_id', $sellerId);
+        })->count();
 
         return response()->json([
             'total_products' => (int) ($productStats->total_products ?? 0),
             'total_stock'    => (int) ($productStats->total_stock ?? 0),
             'total_sold'     => $totalSold,
             'total_revenue'  => round($totalRevenue, 2),
+            'orders_count' => $ordersCount,
+            'completed_orders' => $completedOrders,
+            'completion_rate' => $ordersCount ? round(($completedOrders / $ordersCount) * 100, 1) : 0,
+            'average_rating' => round($averageRating, 1),
+            'low_stock_count' => $lowStockCount,
+            'disputes_count' => $disputesCount,
+            'dispute_rate' => $ordersCount ? round(($disputesCount / $ordersCount) * 100, 1) : 0,
         ]);
     }
 

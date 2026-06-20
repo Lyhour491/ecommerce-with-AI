@@ -2,8 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Clock,
   Edit3,
-  Filter,
-  MoreVertical,
   PackageCheck,
   Search,
   ShoppingCart,
@@ -169,7 +167,6 @@ function AdminOrders() {
                 </button>
               ))}
             </div>
-            <div className="table-tools"><Filter size={17} /><MoreVertical size={18} /></div>
           </div>
 
           <div className="product-like-table-wrap">

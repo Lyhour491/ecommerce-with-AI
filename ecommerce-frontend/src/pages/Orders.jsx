@@ -29,31 +29,71 @@ function Orders() {
   
   // Chat state hooks
   const [showChatModal, setShowChatModal] = useState(false);
+  const [showContactForm, setShowContactForm] = useState(false);
   const [chatInput, setChatInput] = useState("");
   const [chatTrigger, setChatTrigger] = useState(0);
   const [chatMessages, setChatMessages] = useState([]);
+  const [activeDispute, setActiveDispute] = useState(null);
+  const [contactSaving, setContactSaving] = useState(false);
 
   // Load chat messages from backend API
   useEffect(() => {
     if (showChatModal && selectedOrder) {
-      api.get(`/orders/${selectedOrder.id}/messages`)
+      const endpoint = activeDispute?.id ? `/disputes/${activeDispute.id}/messages` : `/orders/${selectedOrder.id}/messages`;
+      api.get(endpoint)
         .then((res) => {
           setChatMessages(res.data || []);
         })
         .catch((err) => console.error("Failed to load chat messages", err));
     }
-  }, [showChatModal, selectedOrder, chatTrigger]);
+  }, [showChatModal, selectedOrder, activeDispute, chatTrigger]);
 
   // Send customer message to backend API
   const handleSendMessage = (orderId) => {
     if (!chatInput.trim()) return;
-    
-    api.post(`/orders/${orderId}/messages`, { text: chatInput })
+
+    const endpoint = activeDispute?.id ? `/disputes/${activeDispute.id}/messages` : `/orders/${orderId}/messages`;
+    api.post(endpoint, { text: chatInput })
       .then(() => {
         setChatInput("");
         setChatTrigger((t) => t + 1);
       })
       .catch((err) => console.error("Failed to send message", err));
+  };
+
+  const openContactSeller = () => {
+    setActiveDispute(null);
+    setChatMessages([]);
+    setShowContactForm(true);
+  };
+
+  const startProductChat = async (item) => {
+    if (!selectedOrder) return;
+    const product = item.product || item;
+    const productName = product.name || "Selected product";
+    const productId = product.id || item.product_id;
+    const quantity = Number(item.quantity || 1);
+    const price = Number(product.price || item.price || 0);
+
+    setContactSaving(true);
+    setError("");
+    try {
+      const disputeRes = await api.post(`/orders/${selectedOrder.id}/disputes`, {
+        product_id: productId,
+        reason: `Product issue: ${productName}`,
+        statement: `Customer opened a seller chat for ${productName}.`,
+        amount: price * quantity || undefined,
+      });
+      const dispute = disputeRes.data?.dispute;
+      setActiveDispute(dispute);
+      setShowContactForm(false);
+      setShowChatModal(true);
+      setChatTrigger((value) => value + 1);
+    } catch (err) {
+      setError(firstApiError(err, "Failed to start seller dispute chat."));
+    } finally {
+      setContactSaving(false);
+    }
   };
 
   // Get current user details to check roles
@@ -710,7 +750,7 @@ function Orders() {
                 <button 
                   className="orders-btn-outline" 
                   style={{ width: "100%", justifyContent: "flex-start", display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 8, fontSize: 13, fontWeight: 600, background: "none", cursor: "pointer", border: "1px solid #cbd5e1" }}
-                  onClick={() => setShowChatModal(true)}
+                  onClick={openContactSeller}
                 >
                   <MessageSquare size={15} />
                   <span>Contact Seller</span>
@@ -735,6 +775,87 @@ function Orders() {
             </div>
           </div>
         </div>
+
+        {/* Contact Seller Product Picker */}
+        {showContactForm && (
+          <div style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(15, 23, 42, 0.5)",
+            backdropFilter: "blur(4px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: 16
+          }} onClick={() => setShowContactForm(false)}>
+            <div style={{
+              backgroundColor: "#ffffff",
+              borderRadius: 16,
+              width: "100%",
+              maxWidth: 520,
+              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)",
+              border: "1px solid #e2e8f0",
+              overflow: "hidden"
+            }} onClick={(e) => e.stopPropagation()}>
+              <div style={{ padding: "16px 20px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center", backgroundColor: "#f8fafc" }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Contact Seller</h3>
+                  <span style={{ fontSize: 12, color: "#64748b" }}>Order ORD-2026-{String(selectedOrder.id).padStart(3, "0")}</span>
+                </div>
+                <button type="button" onClick={() => setShowContactForm(false)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 20, color: "#94a3b8" }}>&times;</button>
+              </div>
+
+              <div style={{ padding: 20, display: "grid", gap: 12 }}>
+                <p style={{ margin: "0 0 4px", color: "#64748b", fontSize: 13, lineHeight: 1.5 }}>
+                  Select the product that has a problem. The chat will go directly to the seller who owns that product.
+                </p>
+                {items.map((item) => {
+                  const product = item.product || item;
+                  const image = getImageUrl(product);
+                  return (
+                    <button
+                      key={item.id || product.id}
+                      type="button"
+                      disabled={contactSaving}
+                      onClick={() => startProductChat(item)}
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "54px 1fr auto",
+                        gap: 12,
+                        alignItems: "center",
+                        width: "100%",
+                        padding: 10,
+                        border: "1px solid #e2e8f0",
+                        borderRadius: 12,
+                        background: "#fff",
+                        cursor: contactSaving ? "wait" : "pointer",
+                        textAlign: "left"
+                      }}
+                    >
+                      {image ? <img src={image} alt={product.name} style={{ width: 54, height: 54, objectFit: "cover", borderRadius: 10 }} /> : <span style={{ width: 54, height: 54, borderRadius: 10, background: "#f1f5f9" }} />}
+                      <span>
+                        <strong style={{ display: "block", color: "#0f172a", fontSize: 14 }}>{product.name || "Product"}</strong>
+                        <small style={{ color: "#64748b" }}>Qty: {item.quantity || 1}</small>
+                      </span>
+                      <ChevronRight size={18} color="#94a3b8" />
+                    </button>
+                  );
+                })}
+                <p style={{ margin: 0, color: "#64748b", fontSize: 12, lineHeight: 1.5 }}>
+                  Admin can review the seller chat later if refund approval is requested.
+                </p>
+              </div>
+
+              <div style={{ padding: 16, borderTop: "1px solid #e2e8f0", display: "flex", justifyContent: "flex-end", gap: 10 }}>
+                <button type="button" onClick={() => setShowContactForm(false)} className="orders-btn-outline" style={{ padding: "10px 16px", borderRadius: 8 }}>Cancel</button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Customer-Seller Chat Modal Overlay */}
         {showChatModal && (

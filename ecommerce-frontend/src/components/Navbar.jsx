@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { NavLink, Link, useNavigate, useLocation } from "react-router-dom";
 import { ShoppingCart, Bell, Search, User, LogOut, LayoutDashboard, Settings, Package, Store, ShieldAlert, CreditCard, MessageSquare, Sparkles } from "lucide-react";
 import { useMarkNotificationsRead, useNotifications } from "../hooks/useNotifications";
+import api from "../api/axios";
+import { unwrapUser } from "../utils/store";
 
 function getStoredUser() {
   try {
@@ -33,7 +35,7 @@ function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
   const token = localStorage.getItem("token");
-  const user = getStoredUser();
+  const [user, setUser] = useState(() => getStoredUser());
   const role = String(user?.role || "").toLowerCase();
   const isAdmin = role === "admin";
   const isSeller = role === "seller";
@@ -46,6 +48,28 @@ function Navbar() {
   const notifications = token ? (notificationData?.notifications || []) : guestNotifications();
   const unreadCount = token ? (notificationData?.unread_count || 0) : 0;
   const storedUnreadCount = token ? (notificationData?.stored_unread_count || 0) : 0;
+
+  useEffect(() => {
+    if (!token) {
+      setUser(null);
+      return;
+    }
+
+    let isMounted = true;
+
+    api.get("/user")
+      .then((response) => {
+        const account = unwrapUser(response.data);
+        if (!isMounted || !account) return;
+        localStorage.setItem("user", JSON.stringify(account));
+        setUser(account);
+      })
+      .catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
+  }, [token]);
 
   // Sync search input with URL search param if present
   useEffect(() => {

@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { 
-  AlertTriangle, Clock, CheckCircle2, Percent, Search, Filter, 
-  MoreVertical, Calendar, User, ShoppingCart, DollarSign, X, Edit3, ArrowRight
+  AlertTriangle, Clock, CheckCircle2, Percent, Search, 
+  Calendar, User, ShoppingCart, DollarSign, X, Edit3, ArrowRight
 } from "lucide-react";
 import api from "../../api/axios";
 import { money } from "../../utils/store";
@@ -11,11 +11,14 @@ const normalizeDispute = (dispute) => ({
   dbId: dispute.id,
   orderNumber: dispute.order_number || dispute.order_id,
   customerName: dispute.customer_name || "Customer",
+  productName: dispute.product_name || "",
   reason: dispute.reason || "General dispute",
   statement: dispute.statement || "",
   amount: Number(dispute.amount || 0),
   status: dispute.status || "pending",
+  sellerRequestedRefund: Boolean(dispute.seller_requested_refund),
   date: dispute.date || (dispute.created_at ? new Date(dispute.created_at).toLocaleDateString() : "-"),
+  messages: Array.isArray(dispute.messages) ? dispute.messages : [],
 });
 
 export default function AdminDisputes() {
@@ -170,7 +173,6 @@ export default function AdminDisputes() {
                 </button>
               ))}
             </div>
-            <div className="table-tools"><Filter size={17} /><MoreVertical size={18} /></div>
           </div>
 
           <div className="product-like-table-wrap">
@@ -195,7 +197,11 @@ export default function AdminDisputes() {
                     <td>
                       <strong>{dispute.customerName}</strong>
                     </td>
-                    <td>{dispute.reason}</td>
+                    <td>
+                      <strong>{dispute.productName || dispute.reason}</strong>
+                      {dispute.sellerRequestedRefund && <span className="status-badge pending" style={{ display: "inline-flex", marginLeft: 8 }}>Seller refund request</span>}
+                      {dispute.productName && <span style={{ display: "block", color: "#64748b", fontSize: 12 }}>{dispute.reason}</span>}
+                    </td>
                     <td><strong>{money(dispute.amount)}</strong></td>
                     <td>
                       <span className={`status-badge ${dispute.status}`}>
@@ -257,6 +263,16 @@ export default function AdminDisputes() {
                   <span className="row-label">Reason Category:</span>
                   <strong className="row-value">{selectedDispute.reason}</strong>
                 </div>
+                <div className="review-table-row">
+                  <span className="row-label">Problem Product:</span>
+                  <strong className="row-value">{selectedDispute.productName || "Whole order"}</strong>
+                </div>
+                <div className="review-table-row">
+                  <span className="row-label">Seller Refund Request:</span>
+                  <strong className="row-value" style={{ color: selectedDispute.sellerRequestedRefund ? "var(--danger)" : "#64748b" }}>
+                    {selectedDispute.sellerRequestedRefund ? "Requested" : "Not requested"}
+                  </strong>
+                </div>
               </div>
 
               {/* Customer Statement */}
@@ -265,6 +281,20 @@ export default function AdminDisputes() {
                 <p className="description-text">
                   "{selectedDispute.statement}"
                 </p>
+              </div>
+
+              <div className="review-section full-width" style={{ marginTop: 16 }}>
+                <h4 style={{ margin: "0 0 8px 0", fontSize: 13, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>Dispute Chat</h4>
+                <div style={{ display: "grid", gap: 8, maxHeight: 180, overflowY: "auto", padding: 10, border: "1px solid #e2e8f0", borderRadius: 10, background: "#f8fafc" }}>
+                  {selectedDispute.messages.length ? selectedDispute.messages.map((msg) => (
+                    <div key={msg.id} style={{ padding: "8px 10px", borderRadius: 8, background: msg.sender === "customer" ? "#dbeafe" : msg.sender === "seller" ? "#ffffff" : "#fef3c7", border: "1px solid #e2e8f0" }}>
+                      <strong style={{ display: "block", fontSize: 11, color: "#64748b", textTransform: "uppercase" }}>{msg.sender}</strong>
+                      <span style={{ color: "#0f172a", fontSize: 13 }}>{msg.text}</span>
+                    </div>
+                  )) : (
+                    <span style={{ color: "#94a3b8", fontSize: 13 }}>No chat messages yet.</span>
+                  )}
+                </div>
               </div>
 
               <p style={{ fontSize: 12, color: "#64748b", margin: "18px 0 0", lineHeight: 1.4 }}>

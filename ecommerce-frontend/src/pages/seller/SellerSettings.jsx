@@ -318,7 +318,7 @@ export default function SellerSettings() {
                         value={profileForm.business_phone} 
                         onChange={handleProfileChange} 
                         required 
-                        placeholder="+1 (555) 123-4567" 
+                        placeholder="Phone number" 
                       />
                     </div>
                   </label>
@@ -363,7 +363,7 @@ export default function SellerSettings() {
                     value={profileForm.tax_id} 
                     onChange={handleProfileChange} 
                     required 
-                    placeholder="12-3456789" 
+                    placeholder="Tax ID" 
                   />
                 </label>
 

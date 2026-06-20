@@ -11,6 +11,7 @@ class Message extends Model
 
     protected $fillable = [
         'order_id',
+        'dispute_id',
         'user_id',
         'sender',
         'text',
@@ -19,6 +20,11 @@ class Message extends Model
     public function order()
     {
         return $this->belongsTo(Order::class);
+    }
+
+    public function dispute()
+    {
+        return $this->belongsTo(Dispute::class);
     }
 
     public function user()

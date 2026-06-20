@@ -40,6 +40,12 @@ export default function SellerDashboard() {
   const totalOrders = orders.length;
   const avgOrderValue = totalOrders > 0 ? grossRevenue / totalOrders : 0;
   const totalProducts = stats?.total_products ?? 0;
+  const completionRate = Number(stats?.completion_rate || 0);
+  const averageRating = Number(stats?.average_rating || 0);
+  const lowStockCount = Number(stats?.low_stock_count || 0);
+  const disputeRate = Number(stats?.dispute_rate || 0);
+  const stockHealth = totalProducts > 0 ? Math.max(0, Math.round(((totalProducts - lowStockCount) / totalProducts) * 100)) : 0;
+  const supportHealth = Math.max(0, Math.round(100 - disputeRate));
 
   return (
     <div className="merchant-dashboard modern-seller-dashboard">
@@ -276,10 +282,10 @@ export default function SellerDashboard() {
               <div className="perf-row">
                 <div className="perf-label-container">
                   <span>Order Completion Rate</span>
-                  <span className="perf-val-label">92%</span>
+                  <span className="perf-val-label">{completionRate}%</span>
                 </div>
                 <div className="perf-bar-track">
-                  <div className="perf-bar-fill green" style={{ width: "92%" }}></div>
+                  <div className="perf-bar-fill green" style={{ width: `${completionRate}%` }}></div>
                 </div>
               </div>
 
@@ -287,32 +293,32 @@ export default function SellerDashboard() {
               <div className="perf-row">
                 <div className="perf-label-container">
                   <span>Customer Satisfaction</span>
-                  <span className="perf-val-label">4.7 / 5.0</span>
+                  <span className="perf-val-label">{averageRating.toFixed(1)} / 5.0</span>
                 </div>
                 <div className="perf-bar-track">
-                  <div className="perf-bar-fill blue" style={{ width: "94%" }}></div>
+                  <div className="perf-bar-fill blue" style={{ width: `${Math.min(100, averageRating * 20)}%` }}></div>
                 </div>
               </div>
 
               {/* Metric 3 */}
               <div className="perf-row">
                 <div className="perf-label-container">
-                  <span>Response Time</span>
-                  <span className="perf-val-label">Excellent</span>
+                  <span>Support Health</span>
+                  <span className="perf-val-label">{supportHealth}%</span>
                 </div>
                 <div className="perf-bar-track">
-                  <div className="perf-bar-fill orange" style={{ width: "100%" }}></div>
+                  <div className="perf-bar-fill orange" style={{ width: `${supportHealth}%` }}></div>
                 </div>
               </div>
 
               {/* Metric 4 */}
               <div className="perf-row">
                 <div className="perf-label-container">
-                  <span>Shipping Speed</span>
-                  <span className="perf-val-label">Good</span>
+                  <span>Inventory Health</span>
+                  <span className="perf-val-label">{stockHealth}%</span>
                 </div>
                 <div className="perf-bar-track">
-                  <div className="perf-bar-fill cyan" style={{ width: "80%" }}></div>
+                  <div className="perf-bar-fill cyan" style={{ width: `${stockHealth}%` }}></div>
                 </div>
               </div>
             </div>

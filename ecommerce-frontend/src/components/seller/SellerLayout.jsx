@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -9,8 +10,11 @@ import {
   Settings,
   LogOut,
   HelpCircle,
+  Home,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import api from "../../api/axios";
+import { unwrapUser } from "../../utils/store";
 
 function getStoredUser() {
   try {
@@ -22,7 +26,24 @@ function getStoredUser() {
 
 export default function SellerLayout() {
   const navigate = useNavigate();
-  const user = getStoredUser();
+  const [user, setUser] = useState(() => getStoredUser() || {});
+
+  useEffect(() => {
+    let isMounted = true;
+
+    api.get("/user")
+      .then((response) => {
+        const account = unwrapUser(response.data);
+        if (!isMounted || !account) return;
+        localStorage.setItem("user", JSON.stringify(account));
+        setUser(account);
+      })
+      .catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const logout = () => {
     localStorage.removeItem("token");
@@ -59,9 +80,14 @@ export default function SellerLayout() {
           </div>
           <div>
             <p style={{ margin: 0, fontWeight: 900 }}>{user?.name || "Seller"}</p>
-            <span style={{ fontSize: 12, color: "#64748b" }}>{user?.email || ""}</span>
+            <span style={{ fontSize: 12, color: "#64748b" }}>{user?.shop_name || user?.store_name || user?.email || ""}</span>
           </div>
         </div>
+
+        <button type="button" className="dashboard-home-btn" onClick={() => navigate("/")}>
+          <Home size={18} />
+          <span>Back to Store</span>
+        </button>
 
         <button className="seller-logout-btn" onClick={logout} style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 30px", border: 0, background: "transparent", color: "#64748b", fontWeight: "bold", width: "100%", cursor: "pointer", textAlign: "left" }}>
           <LogOut size={18} />

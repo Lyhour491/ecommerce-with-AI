@@ -225,7 +225,7 @@ function SellerApplicationForm() {
                     name="fullName" 
                     value={form.fullName} 
                     onChange={handleChange} 
-                    placeholder="John Doe" 
+                    placeholder="Full name" 
                     required 
                   />
                 </label>
@@ -246,7 +246,7 @@ function SellerApplicationForm() {
                     type="tel" 
                     value={form.business_phone} 
                     onChange={handleChange} 
-                    placeholder="+1 (555) 123-4567" 
+                    placeholder="Phone number" 
                     required 
                   />
                 </label>
@@ -277,7 +277,7 @@ function SellerApplicationForm() {
                     name="business_city" 
                     value={form.business_city} 
                     onChange={handleChange} 
-                    placeholder="San Francisco" 
+                    placeholder="City" 
                     required 
                   />
                 </label>
@@ -288,7 +288,7 @@ function SellerApplicationForm() {
                     name="business_state" 
                     value={form.business_state} 
                     onChange={handleChange} 
-                    placeholder="CA" 
+                    placeholder="State" 
                     required 
                   />
                 </label>
@@ -299,7 +299,7 @@ function SellerApplicationForm() {
                     name="business_zip" 
                     value={form.business_zip} 
                     onChange={handleChange} 
-                    placeholder="94105" 
+                    placeholder="Postal code" 
                     required 
                   />
                 </label>
